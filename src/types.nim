@@ -3,7 +3,7 @@ import std/[strutils, strformat, sequtils]
 import node, error
 
 
-proc primitiveToNim*(typ: string): string =
+proc primitiveToNim(typ: string): string =
   case typ
   of "void": "void"
   of "float": "cfloat"
@@ -63,13 +63,13 @@ proc parseQualType(qualType: string): string =
     return parseFunctionPointerQualType(t)
 
   if t.startsWith("struct "):
-    return t[7..^1]
+    return parseQualType(t[7..^1])
 
   if t.startsWith("union "):
-    return t[6..^1]
+    return parseQualType(t[6..^1])
 
   if t.startsWith("enum "):
-    return t[5..^1]
+    return parseQualType(t[5..^1])
 
   if t.endsWith(" *") or (t.endsWith("*") and t.len > 1):
     let base = t[0..^2].strip()
