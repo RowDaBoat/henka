@@ -1,6 +1,6 @@
 import std/json
 import std/[strutils, strformat, sequtils]
-import node, error
+import node, error, renamer
 
 
 proc primitiveToNim(typ: string): string =
@@ -23,16 +23,16 @@ proc primitiveToNim(typ: string): string =
   else: typ
 
 
-proc parseQualType(qualType: string): string
+proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string
 
 
-proc parseFunctionPointerQualType(t: string): string =
-  let pointerIndex = t.find("(*)")
-  let returnNimType = parseQualType(t[0..<pointerIndex])
+proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
+  let pointerIndex = typ.find("(*)")
+  let returnNimType = parseQualType(typ[0..<pointerIndex], renamer)
 
-  let paramsStart = t.find('(', pointerIndex + 3) + 1
-  let paramsEnd = t.rfind(')')
-  let paramsStr = t[paramsStart..<paramsEnd].strip()
+  let paramsStart = typ.find('(', pointerIndex + 3) + 1
+  let paramsEnd = typ.rfind(')')
+  let paramsStr = typ[paramsStart..<paramsEnd].strip()
 
   let hasParameters = paramsStr.len > 0 and paramsStr != "void"
   let joinedParameters =
@@ -47,32 +47,32 @@ proc parseFunctionPointerQualType(t: string): string =
   &"proc({joinedParameters}){returnPart} " & "{.cdecl.}"
 
 
-proc parseQualType(qualType: string): string =
-  let t = qualType.strip()
+proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string =
+  let typ = qualType.strip()
 
-  if t.startsWith("const "):
-    return parseQualType(t[6..^1])
+  if typ.startsWith("const "):
+    return parseQualType(typ[6..^1], renamer)
 
-  if t.startsWith("volatile "):
-    return parseQualType(t[9..^1])
+  if typ.startsWith("volatile "):
+    return parseQualType(typ[9..^1], renamer)
 
-  if t.startsWith("restrict "):
-    return parseQualType(t[9..^1])
+  if typ.startsWith("restrict "):
+    return parseQualType(typ[9..^1], renamer)
 
-  if "(*)" in t:
-    return parseFunctionPointerQualType(t)
+  if "(*)" in typ:
+    return parseFunctionPointerQualType(typ, renamer)
 
-  if t.startsWith("struct "):
-    return parseQualType(t[7..^1])
+  if typ.startsWith("struct "):
+    return parseQualType(typ[7..^1], renamer)
 
-  if t.startsWith("union "):
-    return parseQualType(t[6..^1])
+  if typ.startsWith("union "):
+    return parseQualType(typ[6..^1], renamer)
 
-  if t.startsWith("enum "):
-    return parseQualType(t[5..^1])
+  if typ.startsWith("enum "):
+    return parseQualType(typ[5..^1], renamer)
 
-  if t.endsWith(" *") or (t.endsWith("*") and t.len > 1):
-    let base = t[0..^2].strip()
+  if typ.endsWith(" *") or (typ.endsWith("*") and typ.len > 1):
+    let base = typ[0..^2].strip()
 
     if base == "char":
       return "cstring"
@@ -80,13 +80,13 @@ proc parseQualType(qualType: string): string =
     if base == "void":
       return "pointer"
 
-    return "ptr " & parseQualType(base)
+    return "ptr " & parseQualType(base, renamer)
 
-  primitiveToNim(t)
+  primitiveToNim(typ)
 
 
-proc qualTypeToNim*(typeRef: JsonNode): string =
-  parseQualType(typeRef.qualType)
+proc qualTypeToNim*(typeRef: JsonNode, renamer: Renamer = defaultRenamer): string =
+  parseQualType(typeRef.qualType, renamer)
 
 
 proc returnTypeToNim*(funcTypeRef: JsonNode): string =

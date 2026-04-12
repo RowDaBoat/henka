@@ -1,36 +1,11 @@
 import std/[json, os, strformat, sets, sequtils]
-import node
-import record
-import enumdecl
-import typedef
-import function
-import vardecl
-import error
-import compileast
+import node, record, enumdecl, typedef, function, vardecl, error, compileast, renamer
+
 
 proc isUserDeclaration(node: JsonNode): bool =
   let location = node.location
   let hasLocation = not location.isNil and location.kind == JObject and location.len > 0
   not node.isImplicit and not node.isInvalid and hasLocation
-
-
-proc emit(s: string) = echo s
-
-
-proc getHeaderPath(): string =
-  if paramCount() < 1:
-    echo "Usage: listdecls <header.h>"
-    quit(1)
-
-  paramStr(1)
-
-
-proc declarationsFrom(root: JsonNode): JsonNode =
-  result = root.inner
-
-  if result.isNil or result.kind != JArray:
-    echo "No top-level declarations found."
-    quit(0)
 
 
 proc updateLocation(declaration: JsonNode, current: var string) =
@@ -40,41 +15,50 @@ proc updateLocation(declaration: JsonNode, current: var string) =
     current = newLocation
 
 
-proc emit(declaration: JsonNode, headerFile: string, emitted: var HashSet[string]) =
+proc bindingFor(
+  declaration: JsonNode, 
+  headerFile: string, 
+  emitted: var HashSet[string],
+  renamer: Renamer
+): string =
   let kind = declaration.astKind
   let name = declaration.name
 
   case kind
   of "RecordDecl":
-    emit record(declaration, headerFile)
     emitted.incl(name)
+    return record(declaration, headerFile, renamer)
 
   of "EnumDecl":
-    emit `enum`(declaration)
     emitted.incl(name)
+    return `enum`(declaration)
 
   of "FunctionDecl":
-    emit function(declaration, headerFile)
+    return function(declaration, headerFile)
 
   of "TypedefDecl":
     if not (name in emitted):
-      emit typedef(declaration)
+      return typedef(declaration)
 
   of "VarDecl":
-    emit vardecl(declaration, headerFile)
+    return vardecl(declaration, headerFile)
 
   of "StaticAssertDecl", "EmptyDecl":
-    discard
+    return ""
 
   else: error &"Henka does not support '{kind}' declarations yet."
 
 
-when isMainModule:
-  let header = getHeaderPath()
-  let jsonAst = compileAstFrom(header)
-  writeFile(&"{splitFile(header)[1]}.json", jsonAst)
+proc generateAst*(header: string): string =
+  compileAstFrom(header)
+
+
+proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): string =
   let root = jsonAst.parseJson()
-  let declarations = declarationsFrom(root)
+  let declarations = root.inner
+
+  if declarations.isNil or declarations.kind != JArray:
+    return
 
   var emitted: HashSet[string]
   var headerFile = ""
@@ -83,4 +67,17 @@ when isMainModule:
     declaration.updateLocation(headerFile)
 
     if not headerFile.isAbsolute:
-      emit declaration, headerFile, emitted
+      let binding = bindingFor(declaration, headerFile, emitted, renamer)
+      if binding.len > 0:
+        result &= binding & "\n"
+
+
+when isMainModule:
+  if paramCount() < 1:
+    echo "Usage: henka <header.h>"
+    quit(1)
+
+  let header = paramStr(1)
+  let jsonAst = generateAst(header)
+  writeFile(&"{splitFile(header)[1]}.json", jsonAst)
+  stdout.write generateBindings(jsonAst)
