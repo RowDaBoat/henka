@@ -40,6 +40,35 @@ proc updateLocation(declaration: JsonNode, current: var string) =
     current = newLocation
 
 
+proc emit(declaration: JsonNode, headerFile: string, emitted: var HashSet[string]) =
+  let kind = declaration.astKind
+  let name = declaration.name
+
+  case kind
+  of "RecordDecl":
+    emit record(declaration, headerFile)
+    emitted.incl(name)
+
+  of "EnumDecl":
+    emit `enum`(declaration)
+    emitted.incl(name)
+
+  of "FunctionDecl":
+    emit function(declaration, headerFile)
+
+  of "TypedefDecl":
+    if not (name in emitted):
+      emit typedef(declaration)
+
+  of "VarDecl":
+    emit vardecl(declaration, headerFile)
+
+  of "StaticAssertDecl", "EmptyDecl":
+    discard
+
+  else: error &"Henka does not support '{kind}' declarations yet."
+
+
 when isMainModule:
   let header = getHeaderPath()
   let jsonAst = compileAstFrom(header)
@@ -51,30 +80,7 @@ when isMainModule:
   var headerFile = ""
 
   for declaration in declarations.filterIt(it.isUserDeclaration):
-    let kind = declaration.astKind
-    let name = declaration.name
     declaration.updateLocation(headerFile)
 
-    case kind
-    of "RecordDecl":
-      emit record(declaration, headerFile)
-      emitted.incl(name)
-
-    of "EnumDecl":
-      emit `enum`(declaration)
-      emitted.incl(name)
-
-    of "FunctionDecl":
-      emit function(declaration, headerFile)
-
-    of "TypedefDecl":
-      if not (name in emitted):
-        emit typedef(declaration)
-
-    of "VarDecl":
-      emit vardecl(declaration, headerFile)
-
-    of "StaticAssertDecl", "EmptyDecl":
-      discard
-
-    else: error &"Henka does not support '{kind}' declarations yet."
+    if not headerFile.isAbsolute:
+      emit declaration, headerFile, emitted
