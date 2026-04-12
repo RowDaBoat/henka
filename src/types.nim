@@ -151,7 +151,7 @@ proc astTypeToNim*(typeNode: JsonNode): string =
   let kind = typeNode.astKind
 
   case kind
-  of "ElaboratedType", "AttributedType", "DecayedType", "AdjustedType":
+  of "ElaboratedType", "AttributedType", "DecayedType", "AdjustedType", "QualType":
     return typeNode.inner[0].astTypeToNim
 
   of "RecordType", "EnumType", "TypedefType":

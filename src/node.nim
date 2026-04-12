@@ -39,3 +39,9 @@ proc file*(node: JsonNode): string =
 
 proc tag*(node: JsonNode): string =
   node.getOrDefault("tagUsed").getStr
+
+proc storageClass*(node: JsonNode): string =
+  node.getOrDefault("storageClass").getStr
+
+proc value*(node: JsonNode): string =
+  node.getOrDefault("value").getStr
