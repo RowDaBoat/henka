@@ -11,7 +11,7 @@ import compileast
 proc isUserDeclaration(node: JsonNode): bool =
   let location = node.location
   let hasLocation = not location.isNil and location.kind == JObject and location.len > 0
-  not node.isImplicit and hasLocation
+  not node.isImplicit and not node.isInvalid and hasLocation
 
 
 proc emit(s: string) = echo s

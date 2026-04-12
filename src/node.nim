@@ -25,6 +25,9 @@ proc astKind*(node: JsonNode): string =
 proc isImplicit*(node: JsonNode): bool =
   node.getOrDefault("isImplicit").getBool(false)
 
+proc isInvalid*(node: JsonNode): bool =
+  node.getOrDefault("isInvalid").getBool(false)
+
 proc isVariadic*(node: JsonNode): bool =
   node.getOrDefault("variadic").getBool(false)
 
