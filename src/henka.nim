@@ -1,6 +1,7 @@
 import std/[json, os, strformat, sets, strutils, sequtils]
 import node, record, enumdecl, typedef, function, vardecl, error, compileast, renamer
 import cliquet
+export renamer
 
 
 proc isUserDeclaration(node: JsonNode): bool =
