@@ -1,17 +1,22 @@
-import std/[os, osproc, strformat]
+import std/[os, osproc, strformat, strutils, sequtils]
 import error
 
 
-proc compileAstFrom*(headerPath: string): string =
-  let flags = "clang -fsyntax-only -x c -Xclang -ast-dump=json"
-  let includes = "-I " & quoteShell(headerPath.parentDir())
-  let header = quoteShell(headerPath)
-  let stderrPath = getTempDir() / "henka_clang.err"
-  let cmd = &"{flags} {includes} {header} 2>{quoteShell(stderrPath)}"
-  let (output, exitCode) = execCmdEx(cmd)
-  let compilationFailed = exitCode != 0
+proc compileAstFrom*(headerPaths: seq[string], extraArgs: string = ""): string =
+  let wrapperPath = getCurrentDir() / "_henka_tmp.h"
+  let wrapperContent = headerPaths.mapIt(&"#include \"{it}\"").join("\n")
 
-  if compilationFailed:
+  writeFile(wrapperPath, wrapperContent)
+  defer: removeFile(wrapperPath)
+
+  let flags = "clang -fsyntax-only -x c -Xclang -ast-dump=json"
+  let includeDirs = headerPaths.mapIt(it.parentDir).deduplicate.mapIt("-I " & quoteShell(it)).join(" ")
+  let extra = if extraArgs.len > 0: " " & extraArgs else: ""
+  let stderrPath = getTempDir() / "henka_clang.err"
+  let cmd = &"{flags} {includeDirs}{extra} {quoteShell(wrapperPath)} 2>{quoteShell(stderrPath)}"
+  let (output, exitCode) = execCmdEx(cmd)
+
+  if exitCode != 0:
     error readFile(stderrPath)
 
   output

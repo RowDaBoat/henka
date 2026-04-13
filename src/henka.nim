@@ -1,5 +1,6 @@
-import std/[json, os, strformat, sets, sequtils]
+import std/[json, os, strformat, sets, strutils, sequtils]
 import node, record, enumdecl, typedef, function, vardecl, error, compileast, renamer
+import cliquet
 
 
 proc isUserDeclaration(node: JsonNode): bool =
@@ -49,8 +50,8 @@ proc bindingFor(
   else: error &"Henka does not support '{kind}' declarations yet."
 
 
-proc generateAst*(header: string): string =
-  compileAstFrom(header)
+proc generateAst*(headers: seq[string], clangArgs: string = ""): string =
+  compileAstFrom(headers, clangArgs)
 
 
 proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): string =
@@ -60,24 +61,54 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
   if declarations.isNil or declarations.kind != JArray:
     return
 
+  let projectDir = getCurrentDir()
   var emitted: HashSet[string]
   var headerFile = ""
 
   for declaration in declarations.filterIt(it.isUserDeclaration):
     declaration.updateLocation(headerFile)
 
-    if not headerFile.isAbsolute:
-      let binding = bindingFor(declaration, headerFile, emitted, renamer)
+    if headerFile.startsWith(projectDir):
+      let relativeHeaderFile = headerFile.relativePath(projectDir)
+      let binding = bindingFor(declaration, relativeHeaderFile, emitted, renamer)
+
       if binding.len > 0:
         result &= binding & "\n"
 
 
+type CliConfig = object
+  help      {.help: "Show this help message", shortOption: 'h', mode: option.}           : bool
+  clangargs {.help: "Forward arguments to clang".}                                       : string
+  astout    {.help: "Output the generated JSON AST to this path".}                       : string
+  nimout    {.help: "Output the generated Nim bindings to this path (default: stdout)".} : string
+  jsonast   {.help: "Use an existing JSON AST instead of invoking clang".}               : string
+
+
 when isMainModule:
-  if paramCount() < 1:
-    echo "Usage: henka <header.h>"
+  var cli = initCliquet(CliConfig())
+  let headers = cli.parseOptions(commandLineParams())
+  let config = cli.config()
+  let usage = "Usage: henka [options] <header.h> [header.h ...]"
+  let help = usage & "\n" & cli.generateHelp()
+
+  if config.help:
+    echo help
+    quit(0)
+
+  let hasInput = config.jsonast.len > 0 or headers.len > 0
+  if not hasInput:
+    echo help
     quit(1)
 
-  let header = paramStr(1)
-  let jsonAst = generateAst(header)
-  writeFile(&"{splitFile(header)[1]}.json", jsonAst)
-  stdout.write generateBindings(jsonAst)
+  let jsonAst = case config.jsonast.len > 0:
+  of true:  readFile(config.jsonast)
+  of false: generateAst(headers, config.clangargs)
+
+  if config.astout.len > 0:
+    writeFile(config.astout, jsonAst)
+
+  let bindings = generateBindings(jsonAst)
+
+  case config.nimout.len > 0:
+  of true:  writeFile(config.nimout, bindings)
+  of false: stdout.write bindings
