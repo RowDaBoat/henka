@@ -6,7 +6,7 @@ license     = "MIT"
 
 # Dependencies
 requires "nim >= 2.0.0"
-requires "cliquet >= 0.0.1"
+requires "https://github.com/rowDaBoat/cliquet"
 
 # Binaries
 bin           = @["henka"]
