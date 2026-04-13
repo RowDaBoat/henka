@@ -25,9 +25,10 @@ proc explicitValue(constant: JsonNode): string =
 proc enumConstant(constant: JsonNode, renamer: Renamer): string =
   let value = explicitValue(constant)
   let hasValue = value.len > 0
-  let renamed = renamer(EnumValue, constant.name)
-  if hasValue: &"  {renamed} = {value}"
-  else: &"  {renamed}"
+  let (renamed, userPragmas) = renamer(EnumValue, constant.name)
+  let pragmas = pragmas(userPragmas)
+  if hasValue: &"  {renamed}{pragmas} = {value}"
+  else: &"  {renamed}{pragmas}"
 
 
 proc `enum`*(node: JsonNode, renamer: Renamer): string =
@@ -36,8 +37,9 @@ proc `enum`*(node: JsonNode, renamer: Renamer): string =
   if inner.isNil or inner.kind != JArray:
     return
 
-  let renamed = renamer(EnumType, node.name)
-  result = &"type {renamed}* " & "{.size: sizeof(cint).} = enum\n"
+  let (renamed, userPragmas) = renamer(EnumType, node.name)
+  let pragmas = pragmas(@["size: sizeof(cint)"] & userPragmas)
+  result = &"type {renamed}*" & pragmas & " = enum\n"
 
   let constants = inner.getElems
     .filterIt(it.isEnumConstantDeclaration)

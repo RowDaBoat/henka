@@ -1,16 +1,13 @@
-import std/[json, strutils, strformat, sequtils]
+import std/[json, strformat, sequtils]
 import node, types, renamer
 
 
-proc pragmasFrom(isUnion: bool, header: string): string =
-  var pragmas = @["importc"]
-
-  pragmas.add (if isUnion: "union" else: "bycopy")
+proc recordPragmas(isUnion: bool, header: string): seq[string] =
+  result = @["importc"]
+  result.add (if isUnion: "union" else: "bycopy")
 
   if header.len > 0:
-    pragmas.add(&"header: \"{header}\"")
-
-  result = "{." & pragmas.join(", ") & ".}"
+    result.add(&"header: \"{header}\"")
 
 
 proc isFieldDeclaration(node: JsonNode): bool =
@@ -19,10 +16,10 @@ proc isFieldDeclaration(node: JsonNode): bool =
 
 proc record*(node: JsonNode, header: string, renamer: Renamer): string =
   let isUnion = node.tag == "union"
-  let pragmas = pragmasFrom(isUnion, header)
   let recordKind = if isUnion: UnionType else: StructType
-  let nimObject = renamer(recordKind, node.name)
-  result = &"type {nimObject}* {pragmas} = object\n"
+  let (nimObject, userPragmas) = renamer(recordKind, node.name)
+  let pragmas = pragmas(recordPragmas(isUnion, header) & userPragmas)
+  result = &"type {nimObject}*{pragmas} = object\n"
 
   let inner = node.inner
   if inner.isNil or inner.kind != JArray:
@@ -30,5 +27,6 @@ proc record*(node: JsonNode, header: string, renamer: Renamer): string =
 
   for field in inner.getElems.filterIt(it.isFieldDeclaration):
     let nimType = qualTypeToNim(field.typ, renamer)
-    let nimField = renamer(Field, field.name)
-    result &= &"  {nimField}*: {nimType}\n"
+    let (nimField, userPragmas) = renamer(Field, field.name)
+    let pragmas = pragmas(userPragmas)
+    result &= &"  {nimField}*{pragmas}: {nimType}\n"

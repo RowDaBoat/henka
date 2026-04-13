@@ -2,16 +2,14 @@ import std/[json, strutils, strformat, sequtils]
 import node, types, renamer
 
 
-proc pragmasFrom(header: string, isVariadic: bool): string =
-  var pragmas = @["importc", "cdecl"]
+proc functionPragmas(header: string, isVariadic: bool): seq[string] =
+  result = @["importc", "cdecl"]
 
   if isVariadic:
-    pragmas.add("varargs")
+    result.add("varargs")
 
   if header.len > 0:
-    pragmas.add(&"header: \"{header}\"")
-
-  result = "{." & pragmas.join(", ") & ".}"
+    result.add(&"header: \"{header}\"")
 
 
 proc isParameterDeclaration(node: JsonNode): bool =
@@ -29,12 +27,13 @@ proc function*(node: JsonNode, header: string, renamer: Renamer): string =
   var parameters: seq[string]
 
   for parameter in inner.getElems.filterIt(it.isParameterDeclaration):
-    let renamed = renamer(Parameter, parameter.name)
+    let (renamed, userPragmas) = renamer(Parameter, parameter.name)
+    let pragmas = pragmas(userPragmas)
     let parameterType = qualTypeToNim(parameter.typ, renamer)
-    parameters.add(renamed & ": " & parameterType)
+    parameters.add(renamed & pragmas & ": " & parameterType)
 
-  let renamed = renamer(Proc, node.name)
+  let (renamed, userPragmas) = renamer(Proc, node.name)
   let joinedParameters = parameters.join(", ")
-  let pragmas = pragmasFrom(header, node.isVariadic)
-  let `return` = if nimReturnType == "void": " " else: &": {nimReturnType}"
-  result = &"proc {renamed}*({joinedParameters}){`return`} {pragmas}"
+  let pragmas = pragmas(functionPragmas(header, node.isVariadic) & userPragmas)
+  let `return` = if nimReturnType == "void": "" else: &": {nimReturnType}"
+  result = &"proc {renamed}*({joinedParameters}){`return`}{pragmas}"

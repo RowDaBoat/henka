@@ -8,5 +8,6 @@ proc typedef*(node: JsonNode, renamer: Renamer): string =
   if inner.isNil or inner.kind != JArray or inner.len == 0:
     return
 
-  let renamed = renamer(Typedef, node.name)
-  &"type {renamed}* = {inner[0].astTypeToNim}"
+  let (renamed, userPragmas) = renamer(Typedef, node.name)
+  let pragmas = pragmas(userPragmas)
+  &"type {renamed}*{pragmas} = {inner[0].astTypeToNim}"

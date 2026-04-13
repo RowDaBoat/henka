@@ -1,3 +1,6 @@
+import strutils
+
+
 type LabelKind* = enum
   Variable, Constant
   Proc, Parameter
@@ -6,7 +9,9 @@ type LabelKind* = enum
   Typedef
 
 
-type Renamer* = proc(kind: LabelKind, label: string): string
+type RenameResult* = tuple[name: string, pragmas: seq[string]]
+
+type Renamer* = proc(kind: LabelKind, label: string): RenameResult
 
 
 proc dedupUnderscores*(label: string): string =
@@ -20,10 +25,18 @@ proc dedupUnderscores*(label: string): string =
     wasUnderscore = isUnderscore
 
 
-proc defaultRenamer*(kind: LabelKind, label: string): string =
+proc defaultRenamer*(kind: LabelKind, label: string): RenameResult =
   let dedupedLabel = label.dedupUnderscores
-  case kind
-  of EnumType:   "enum_" & dedupedLabel
-  of StructType: "struct_" & dedupedLabel
-  of UnionType:  "union_" & dedupedLabel  
-  else: dedupedLabel
+  let name = case kind
+    of EnumType:   "enum_" & dedupedLabel
+    of StructType: "struct_" & dedupedLabel
+    of UnionType:  "union_" & dedupedLabel
+    else: dedupedLabel
+  (name: name, pragmas: @[])
+
+
+proc pragmas*(pragmas: seq[string]): string =
+  if pragmas.len == 0:
+    return ""
+
+  " {." & pragmas.join(", ") & ".}"

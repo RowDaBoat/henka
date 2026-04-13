@@ -43,7 +43,7 @@ proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
     joinedParameters = renamedParameters.join(", ")
 
   let returnPart = if returnNimType == "void": "" else: &": {returnNimType}"
-  &"proc({joinedParameters}){returnPart} " & "{.cdecl.}"
+  &"proc({joinedParameters}){returnPart}" & pragmas(@["cdecl"])
 
 
 proc parseQualType(qualType: string, renamer: Renamer): string =
@@ -73,13 +73,13 @@ proc parseQualType(qualType: string, renamer: Renamer): string =
     return "ptr " & parseQualType(base, renamer)
 
   if typ.startsWith("struct "):
-    return renamer(StructType, typ[7..^1])
+    return renamer(StructType, typ[7..^1])[0]
 
   if typ.startsWith("union "):
-    return renamer(UnionType, typ[6..^1])
+    return renamer(UnionType, typ[6..^1])[0]
 
   if typ.startsWith("enum "):
-    return renamer(EnumType, typ[5..^1])
+    return renamer(EnumType, typ[5..^1])[0]
 
   primitiveToNim(typ)
 
@@ -143,7 +143,7 @@ proc functionPrototype(typeNode: JsonNode): string =
       .join(", ")
 
   let returnPart = if returnType == "void": "" else: ": " & returnType
-  return &"proc({parameters}){returnPart} " & "{.cdecl.}"
+  return &"proc({parameters}){returnPart}" & pragmas(@["cdecl"])
 
 
 proc astTypeToNim*(typeNode: JsonNode): string =
