@@ -23,7 +23,7 @@ proc primitiveToNim(typ: string): string =
   else: typ
 
 
-proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string
+proc parseQualType(qualType: string, renamer: Renamer): string
 
 
 proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
@@ -35,19 +35,18 @@ proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
   let paramsStr = typ[paramsStart..<paramsEnd].strip()
 
   let hasParameters = paramsStr.len > 0 and paramsStr != "void"
-  let joinedParameters =
-    if hasParameters:
-      paramsStr.split(", ").pairs.toSeq
-        .mapIt(&"a{it[0]}: {parseQualType(it[1])}")
-        .join(", ")
-    else:
-      ""
+  var joinedParameters = ""
+
+  if hasParameters:
+    let splitParameters = paramsStr.split(", ").pairs.toSeq
+    let renamedParameters = splitParameters.mapIt(&"a{it[0]}: {parseQualType(it[1], renamer)}")
+    joinedParameters = renamedParameters.join(", ")
 
   let returnPart = if returnNimType == "void": "" else: &": {returnNimType}"
   &"proc({joinedParameters}){returnPart} " & "{.cdecl.}"
 
 
-proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string =
+proc parseQualType(qualType: string, renamer: Renamer): string =
   let typ = qualType.strip()
 
   if typ.startsWith("const "):
@@ -62,15 +61,6 @@ proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string 
   if "(*)" in typ:
     return parseFunctionPointerQualType(typ, renamer)
 
-  if typ.startsWith("struct "):
-    return parseQualType(typ[7..^1], renamer)
-
-  if typ.startsWith("union "):
-    return parseQualType(typ[6..^1], renamer)
-
-  if typ.startsWith("enum "):
-    return parseQualType(typ[5..^1], renamer)
-
   if typ.endsWith(" *") or (typ.endsWith("*") and typ.len > 1):
     let base = typ[0..^2].strip()
 
@@ -82,18 +72,27 @@ proc parseQualType(qualType: string, renamer: Renamer = defaultRenamer): string 
 
     return "ptr " & parseQualType(base, renamer)
 
+  if typ.startsWith("struct "):
+    return renamer(StructType, typ[7..^1])
+
+  if typ.startsWith("union "):
+    return renamer(UnionType, typ[6..^1])
+
+  if typ.startsWith("enum "):
+    return renamer(EnumType, typ[5..^1])
+
   primitiveToNim(typ)
 
 
-proc qualTypeToNim*(typeRef: JsonNode, renamer: Renamer = defaultRenamer): string =
+proc qualTypeToNim*(typeRef: JsonNode, renamer: Renamer): string =
   parseQualType(typeRef.qualType, renamer)
 
 
-proc returnTypeToNim*(funcTypeRef: JsonNode): string =
+proc returnTypeToNim*(funcTypeRef: JsonNode, renamer: Renamer): string =
   let qualType = funcTypeRef.qualType
   let parenIndex = qualType.find('(')
   let returnQualType = if parenIndex >= 0: qualType[0..<parenIndex] else: qualType
-  parseQualType(returnQualType)
+  parseQualType(returnQualType, renamer)
 
 
 proc builtInType*(typeNode: JsonNode): string =

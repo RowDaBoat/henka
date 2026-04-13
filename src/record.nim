@@ -20,7 +20,8 @@ proc isFieldDeclaration(node: JsonNode): bool =
 proc record*(node: JsonNode, header: string, renamer: Renamer): string =
   let isUnion = node.tag == "union"
   let pragmas = pragmasFrom(isUnion, header)
-  let nimObject = renamer(StructType, node.name)
+  let recordKind = if isUnion: UnionType else: StructType
+  let nimObject = renamer(recordKind, node.name)
   result = &"type {nimObject}* {pragmas} = object\n"
 
   let inner = node.inner

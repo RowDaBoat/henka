@@ -1,8 +1,9 @@
 type LabelKind* = enum
   Variable, Constant
-  Proc, Argument
-  EnumType
+  Proc, Parameter
+  EnumType, EnumValue
   StructType, UnionType, Field
+  Typedef
 
 
 type Renamer* = proc(kind: LabelKind, label: string): string

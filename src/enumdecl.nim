@@ -1,5 +1,5 @@
 import std/[json, strutils, strformat, sequtils]
-import node
+import node, renamer
 
 
 proc isEnumConstantDeclaration(node: JsonNode): bool =
@@ -22,23 +22,25 @@ proc explicitValue(constant: JsonNode): string =
   expr.getOrDefault("value").getStr
 
 
-proc enumConstant(constant: JsonNode): string =
+proc enumConstant(constant: JsonNode, renamer: Renamer): string =
   let value = explicitValue(constant)
   let hasValue = value.len > 0
-  if hasValue: &"  {constant.name} = {value}"
-  else: &"  {constant.name}"
+  let renamed = renamer(EnumValue, constant.name)
+  if hasValue: &"  {renamed} = {value}"
+  else: &"  {renamed}"
 
 
-proc `enum`*(node: JsonNode): string =
+proc `enum`*(node: JsonNode, renamer: Renamer): string =
   let inner = node.inner
 
   if inner.isNil or inner.kind != JArray:
     return
 
-  result = &"type {node.name}* " & "{.size: sizeof(cint).} = enum\n"
+  let renamed = renamer(EnumType, node.name)
+  result = &"type {renamed}* " & "{.size: sizeof(cint).} = enum\n"
 
   let constants = inner.getElems
     .filterIt(it.isEnumConstantDeclaration)
-    .mapIt(it.enumConstant)
+    .mapIt(it.enumConstant(renamer))
 
   result &= constants.join(",\n") & "\n"

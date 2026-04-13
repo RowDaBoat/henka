@@ -31,17 +31,17 @@ proc bindingFor(
 
   of "EnumDecl":
     emitted.incl(name)
-    return `enum`(declaration)
+    return `enum`(declaration, renamer)
 
   of "FunctionDecl":
-    return function(declaration, headerFile)
+    return function(declaration, headerFile, renamer)
 
   of "TypedefDecl":
     if not (name in emitted):
-      return typedef(declaration)
+      return typedef(declaration, renamer)
 
   of "VarDecl":
-    return vardecl(declaration, headerFile)
+    return vardecl(declaration, headerFile, renamer)
 
   of "StaticAssertDecl", "EmptyDecl":
     return ""

@@ -1,5 +1,5 @@
 import std/[json, strutils, strformat]
-import node, types
+import node, types, renamer
 
 
 proc extractLiteralValue(node: JsonNode): string =
@@ -19,19 +19,21 @@ proc isStaticConst(node: JsonNode): bool =
   node.storageClass == "static"
 
 
-proc vardecl*(node: JsonNode, header: string): string =
-  let nimType = qualTypeToNim(node.typ)
+proc vardecl*(node: JsonNode, header: string, renamer: Renamer): string =
+  let nimType = qualTypeToNim(node.typ, renamer)
 
   if node.isStaticConst:
     let inner = node.inner
     let hasValue = not inner.isNil and inner.kind == JArray and inner.len > 0
+    let renamed = renamer(Constant, node.name)
     let literalValue = if hasValue: extractLiteralValue(inner[0]) else: ""
-    return &"const {node.name}*: {nimType} = {literalValue}"
+    return &"const {renamed}*: {nimType} = {literalValue}"
 
   var pragmas = @["importc"]
 
   if header.len > 0:
     pragmas.add(&"header: \"{header}\"")
 
+  let renamed = renamer(Variable, node.name)
   let pragmaStr = "{." & pragmas.join(", ") & ".}"
-  &"var {node.name}* {pragmaStr}: {nimType}"
+  &"var {renamed}* {pragmaStr}: {nimType}"
