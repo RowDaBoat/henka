@@ -3,6 +3,7 @@ version     = "0.1.0"
 author      = "RowDaBoat"
 description = "Generate Nim FFI bindings from Clang AST JSON"
 license     = "MIT"
+installExt  = @["nim"]
 
 # Dependencies
 requires "nim >= 2.0.0"
