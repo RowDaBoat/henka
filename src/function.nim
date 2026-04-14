@@ -1,10 +1,9 @@
 import std/[json, strutils, strformat, sequtils]
-import node, types, renamer
+import node, types, renamer, pragmas
 
 
 proc functionPragmas(name: string, renamed: string, header: string, isVariadic: bool): seq[string] =
-  let importcPragma = if name != renamed: &"importc: \"{name}\"" else: "importc"
-  result = @[importcPragma, "cdecl"]
+  result = @[importcPragma(name, renamed), "cdecl"]
 
   if isVariadic:
     result.add("varargs")

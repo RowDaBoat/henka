@@ -1,5 +1,5 @@
 import std/[json, strformat]
-import node, types, renamer
+import node, types, renamer, pragmas
 
 
 proc extractLiteralValue(node: JsonNode): string =
@@ -20,8 +20,7 @@ proc isStaticConst(node: JsonNode): bool =
 
 
 proc varPragmas(name: string, renamed: string, header: string, userPragmas: seq[string]): seq[string] =
-  let importcPragma = if name != renamed: &"importc: \"{name}\"" else: "importc"
-  result = @[importcPragma]
+  result = @[importcPragma(name, renamed)]
 
   if header.len > 0:
     result.add(&"header: \"{header}\"")

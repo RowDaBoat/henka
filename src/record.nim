@@ -1,10 +1,9 @@
 import std/[json, strformat, sequtils]
-import node, types, renamer
+import node, types, renamer, pragmas
 
 
 proc recordPragmas(name: string, nimObject: string, isUnion: bool, header: string): seq[string] =
-  let importcPragma = if name != nimObject: &"importc: \"{name}\"" else: "importc"
-  result = @[importcPragma]
+  result = @[importcPragma(name, nimObject)]
   result.add (if isUnion: "union" else: "bycopy")
 
   if header.len > 0:
