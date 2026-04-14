@@ -1,5 +1,5 @@
 import std/[json, strutils, strformat, sequtils]
-import node, renamer
+import node, renamer, pragmas
 
 
 proc isEnumConstantDeclaration(node: JsonNode): bool =

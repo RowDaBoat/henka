@@ -1,6 +1,6 @@
 import std/json
 import std/[strutils, strformat, sequtils]
-import node, error, renamer
+import node, error, renamer, pragmas
 
 
 proc primitiveToNim(typ: string): string =

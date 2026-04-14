@@ -1,9 +1,9 @@
 import std/[json, strutils, strformat, sequtils]
-import node, types, renamer
+import node, types, renamer, pragmas
 
 
-proc functionPragmas(header: string, isVariadic: bool): seq[string] =
-  result = @["importc", "cdecl"]
+proc functionPragmas(name: string, renamed: string, header: string, isVariadic: bool): seq[string] =
+  result = @[importc(name, renamed), "cdecl"]
 
   if isVariadic:
     result.add("varargs")
@@ -34,6 +34,6 @@ proc function*(node: JsonNode, header: string, renamer: Renamer): string =
 
   let (renamed, userPragmas) = renamer(Proc, node.name)
   let joinedParameters = parameters.join(", ")
-  let pragmas = pragmas(functionPragmas(header, node.isVariadic) & userPragmas)
+  let pragmas = pragmas(functionPragmas(node.name, renamed, header, node.isVariadic) & userPragmas)
   let `return` = if nimReturnType == "void": "" else: &": {nimReturnType}"
   result = &"proc {renamed}*({joinedParameters}){`return`}{pragmas}"

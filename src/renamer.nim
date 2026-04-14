@@ -1,6 +1,3 @@
-import strutils
-
-
 type LabelKind* = enum
   Variable, Constant
   Proc, Parameter
@@ -33,10 +30,3 @@ proc defaultRenamer*(kind: LabelKind, label: string): RenameResult =
     of UnionType:  "union_" & dedupedLabel
     else: dedupedLabel
   (name: name, pragmas: @[])
-
-
-proc pragmas*(pragmas: seq[string]): string =
-  if pragmas.len == 0:
-    return ""
-
-  " {." & pragmas.join(", ") & ".}"

@@ -1,5 +1,5 @@
 import std/[json, strformat]
-import node, types, renamer
+import node, types, renamer, pragmas
 
 
 proc extractLiteralValue(node: JsonNode): string =
@@ -19,13 +19,11 @@ proc isStaticConst(node: JsonNode): bool =
   node.storageClass == "static"
 
 
-proc varPragmas(header: string, userPragmas: seq[string]): seq[string] =
-  result = @["importc"]
+proc varPragmas(name: string, renamed: string, header: string): seq[string] =
+  result = @[importc(name, renamed)]
 
   if header.len > 0:
     result.add(&"header: \"{header}\"")
-
-  result &= userPragmas
 
 
 proc vardecl*(node: JsonNode, header: string, renamer: Renamer): string =
@@ -40,5 +38,5 @@ proc vardecl*(node: JsonNode, header: string, renamer: Renamer): string =
     return &"const {renamed}*{pragmas}: {nimType} = {literalValue}"
 
   let (renamed, userPragmas) = renamer(Variable, node.name)
-  let pragmas = pragmas(varPragmas(header, userPragmas))
+  let pragmas = pragmas(varPragmas(node.name, renamed, header) & userPragmas)
   &"var {renamed}*{pragmas}: {nimType}"

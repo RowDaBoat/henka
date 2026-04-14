@@ -1,6 +1,6 @@
 import std/[json, strformat]
-import node, renamer
-import types
+import node, types, renamer, pragmas
+
 
 proc typedef*(node: JsonNode, renamer: Renamer): string =
   let inner = node.inner
