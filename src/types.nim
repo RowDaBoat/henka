@@ -20,6 +20,15 @@ proc primitiveToNim(typ: string): string =
   of "unsigned long": "culong"
   of "long long": "clonglong"
   of "unsigned long long": "culonglong"
+  of "int8_t": "int8"
+  of "int16_t": "int16"
+  of "int32_t": "int32"
+  of "int64_t": "int64"
+  of "uint8_t": "uint8"
+  of "uint16_t": "uint16"
+  of "uint32_t": "uint32"
+  of "uint64_t": "uint64"
+  of "size_t": "csize_t"
   else: typ
 
 
@@ -153,8 +162,11 @@ proc astTypeToNim*(typeNode: JsonNode): string =
   of "ElaboratedType", "AttributedType", "DecayedType", "AdjustedType", "QualType":
     return typeNode.inner[0].astTypeToNim
 
-  of "RecordType", "EnumType", "TypedefType":
+  of "RecordType", "EnumType":
     return typeNode.decl.name
+
+  of "TypedefType":
+    return primitiveToNim(typeNode.decl.name)
 
   of "BuiltinType":
     return builtInType(typeNode)
