@@ -10,4 +10,4 @@ proc typedef*(node: JsonNode, renamer: Renamer): string =
 
   let (renamed, userPragmas) = renamer(Typedef, node.name)
   let pragmas = pragmas(userPragmas)
-  &"type {renamed}*{pragmas} = {inner[0].astTypeToNim}"
+  result = &"  {renamed}*{pragmas} = {inner[0].astTypeToNim(renamer)}\n"

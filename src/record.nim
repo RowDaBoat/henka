@@ -2,11 +2,17 @@ import std/[json, strformat, sequtils]
 import node, types, renamer, pragmas
 
 
-proc recordPragmas(name: string, renamed: string, isUnion: bool, header: string): seq[string] =
-  result = @[importc(name, renamed)]
-  result.add (if isUnion: "union" else: "bycopy")
+proc recordPragmas(isUnion: bool, isForwardDeclaration: bool, header: string): seq[string] =
+  if isForwardDeclaration:
+    result.add "incompleteStruct"
+  elif isUnion:
+    result.add "union"
+  else:
+    result.add "bycopy"
 
-  if header.len > 0:
+  let hasHeader = header.len > 0
+  let shouldIncludeHeader = hasHeader and not isForwardDeclaration
+  if shouldIncludeHeader:
     result.add(&"header: \"{header}\"")
 
 
@@ -17,16 +23,14 @@ proc isFieldDeclaration(node: JsonNode): bool =
 proc record*(node: JsonNode, header: string, renamer: Renamer): string =
   let isUnion = node.tag == "union"
   let recordKind = if isUnion: UnionType else: StructType
-  let (renamed, userPragmas) = renamer(recordKind, node.name)
-  let pragmas = pragmas(recordPragmas(node.name, renamed, isUnion, header) & userPragmas)
-  result = &"type {renamed}*{pragmas} = object\n"
+  let (renamed, userPragmas) = renamer(recordKind, node.resolveName)
+  let pragmas = pragmas(recordPragmas(isUnion, node.isForwardDeclaration, header) & userPragmas)
 
-  let inner = node.inner
-  if inner.isNil or inner.kind != JArray:
-    return
+  result = &"  {renamed}*{pragmas} = object\n"
 
-  for field in inner.getElems.filterIt(it.isFieldDeclaration):
-    let nimType = qualTypeToNim(field.typ, renamer)
-    let (renamed, userPragmas) = renamer(Field, field.name)
-    let pragmas = pragmas(userPragmas)
-    result &= &"  {renamed}*{pragmas}: {nimType}\n"
+  if not node.isForwardDeclaration:
+    for field in node.inner.getElems.filterIt(it.isFieldDeclaration):
+      let nimType = qualTypeToNim(field.typ, renamer)
+      let (renamed, userPragmas) = renamer(Field, field.name)
+      let pragmas = pragmas(userPragmas)
+      result &= &"    {renamed}*{pragmas}: {nimType}\n"

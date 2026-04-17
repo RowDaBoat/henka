@@ -32,7 +32,7 @@ proc primitiveToNim(typ: string): string =
   else: typ
 
 
-proc parseQualType(qualType: string, renamer: Renamer): string
+proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): string
 
 
 proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
@@ -55,7 +55,7 @@ proc parseFunctionPointerQualType(typ: string, renamer: Renamer): string =
   &"proc({joinedParameters}){returnPart}" & pragmas(@["cdecl"])
 
 
-proc parseQualType(qualType: string, renamer: Renamer): string =
+proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): string =
   let typ = qualType.strip()
 
   if typ.startsWith("const "):
@@ -82,13 +82,16 @@ proc parseQualType(qualType: string, renamer: Renamer): string =
     return "ptr " & parseQualType(base, renamer)
 
   if typ.startsWith("struct "):
-    return renamer(StructType, typ[7..^1])[0]
+    let name = if unnamed == "": typ[7..^1] else: unnamed
+    return renamer(StructType, name)[0]
 
   if typ.startsWith("union "):
-    return renamer(UnionType, typ[6..^1])[0]
+    let name = if unnamed == "": typ[6..^1] else: unnamed
+    return renamer(UnionType, name)[0]
 
   if typ.startsWith("enum "):
-    return renamer(EnumType, typ[5..^1])[0]
+    let name = if unnamed == "": typ[5..^1] else: unnamed
+    return renamer(EnumType, name)[0]
 
   primitiveToNim(typ)
 
@@ -108,11 +111,11 @@ proc builtInType*(typeNode: JsonNode): string =
   primitiveToNim(typeNode.typ.qualType)
 
 
-proc astTypeToNim*(typeNode: JsonNode): string
+proc astTypeToNim*(typeNode: JsonNode, renamer: Renamer): string
 
 
-proc constantArrayType(typeNode: JsonNode): string =
-  let elementType = typeNode.inner[0].astTypeToNim
+proc constantArrayType(typeNode: JsonNode, renamer: Renamer): string =
+  let elementType = typeNode.inner[0].astTypeToNim(renamer)
   return &"array[{typeNode.size}, {elementType}]"
 
 
@@ -123,7 +126,7 @@ proc isFunctionType(typeNode: JsonNode): bool =
   isFunctionKind or (isTransparentWrapper and typeNode.inner[0].isFunctionType)
 
 
-proc pointerType(typeNode: JsonNode): string =
+proc pointerType(typeNode: JsonNode, renamer: Renamer): string =
   let inner = typeNode.inner
 
   if inner.isNil or inner.kind != JArray or inner.len == 0:
@@ -132,9 +135,9 @@ proc pointerType(typeNode: JsonNode): string =
   let innerNode = inner[0]
 
   if innerNode.isFunctionType:
-    return innerNode.astTypeToNim
+    return innerNode.astTypeToNim(renamer)
 
-  let baseType = innerNode.astTypeToNim
+  let baseType = innerNode.astTypeToNim(renamer)
 
   case baseType:
   of "cchar": return "cstring"
@@ -142,48 +145,81 @@ proc pointerType(typeNode: JsonNode): string =
   else: return &"ptr {baseType}"
 
 
-proc functionPrototype(typeNode: JsonNode): string =
+proc functionPrototype(typeNode: JsonNode, renamer: Renamer): string =
   let elems = typeNode.inner.getElems
-  let returnType = if elems.len > 0: elems[0].astTypeToNim else: "void"
+  let returnType = if elems.len > 0: elems[0].astTypeToNim(renamer) else: "void"
 
   let parameters =
     toSeq(elems[1..^1].pairs)
-      .mapIt(&"a{it[0]}: {it[1].astTypeToNim}")
+      .mapIt(&"a{it[0]}: {it[1].astTypeToNim(renamer)}")
       .join(", ")
 
   let returnPart = if returnType == "void": "" else: ": " & returnType
   return &"proc({parameters}){returnPart}" & pragmas(@["cdecl"])
 
 
-proc astTypeToNim*(typeNode: JsonNode): string =
+proc astTypeToNim*(typeNode: JsonNode, renamer: Renamer): string =
   let kind = typeNode.astKind
 
   case kind
-  of "ElaboratedType", "AttributedType", "DecayedType", "AdjustedType", "QualType":
-    return typeNode.inner[0].astTypeToNim
+  of "ElaboratedType":
+    let ownedTagDecl = typeNode.ownedTagDecl
+    let hasOwnedTagDecl = not ownedTagDecl.isNil and ownedTagDecl.kind == JObject
 
-  of "RecordType", "EnumType":
-    return typeNode.decl.name
+    if not hasOwnedTagDecl:
+      return typeNode.inner[0].astTypeToNim(renamer)
+
+    let qualifier = typeNode.typ.qualType.split(" ")[0]
+
+    let labelKind =
+      case qualifier
+      of "struct": StructType
+      of "union": UnionType
+      of "enum": EnumType
+      else: StructType
+
+    return renamer(labelKind, ownedTagDecl.resolveName)[0]
+
+  of "AttributedType", "DecayedType", "AdjustedType", "QualType":
+    return typeNode.inner[0].astTypeToNim(renamer)
+
+  of "RecordType":
+    let declNode = typeNode.decl
+    let declName = declNode.resolveName
+    let recordKind = if declNode.tag == "union": UnionType else: StructType
+    return renamer(recordKind, declName)[0]
+
+  of "EnumType":
+    let declNode = typeNode.decl
+    let declName = declNode.resolveName
+    return renamer(EnumType, declName)[0]
 
   of "TypedefType":
-    return primitiveToNim(typeNode.decl.name)
+    let typedefName = typeNode.decl.name
+    let primitiveType = primitiveToNim(typedefName)
+
+    let isPrimitive = primitiveType != typedefName
+    if isPrimitive:
+      return primitiveType
+
+    return renamer(Typedef, typedefName)[0]
 
   of "BuiltinType":
     return builtInType(typeNode)
 
   of "ConstantArrayType":
-    return constantArrayType(typeNode)
+    return constantArrayType(typeNode, renamer)
 
   of "PointerType":
-    return pointerType(typeNode)
+    return "ptr " & astTypeToNim(typeNode.inner[0], renamer)
 
   of "IncompleteArrayType":
-    return "UncheckedArray[" & typeNode.inner[0].astTypeToNim & "]"
+    return "UncheckedArray[" & typeNode.inner[0].astTypeToNim(renamer) & "]"
 
   of "ParenType":
-    return typeNode.inner[0].astTypeToNim
+    return typeNode.inner[0].astTypeToNim(renamer)
 
   of "FunctionProtoType", "FunctionNoProtoType":
-    return functionPrototype(typeNode)
+    return functionPrototype(typeNode, renamer)
 
   error &"Henka does not support '{kind}' types yet."

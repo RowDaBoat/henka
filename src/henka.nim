@@ -10,6 +10,21 @@ proc isUserDeclaration(node: JsonNode): bool =
   not node.isImplicit and not node.isInvalid and hasLocation
 
 
+proc collectCompleteRecords(declarations: JsonNode, projectDir: string): HashSet[string] =
+  var headerFile = ""
+
+  for declaration in declarations.getElems.filterIt(it.isUserDeclaration):
+    declaration.updateLocation(headerFile)
+
+    let isRecordDeclaration = declaration.astKind == "RecordDecl"
+    let isProjectFile = headerFile.startsWith(projectDir)
+    let isCompleteDefinition = not declaration.isForwardDeclaration
+
+    let shouldCollect = isRecordDeclaration and isProjectFile and isCompleteDefinition
+    if shouldCollect:
+      result.incl(declaration.resolveName)
+
+
 proc updateLocation(declaration: JsonNode, current: var string) =
   let newLocation = declaration.location.file
 
@@ -17,7 +32,7 @@ proc updateLocation(declaration: JsonNode, current: var string) =
     current = newLocation
 
 
-proc bindingFor(
+proc typeBindingFor(
   declaration: JsonNode, 
   headerFile: string, 
   emitted: var HashSet[string],
@@ -28,24 +43,38 @@ proc bindingFor(
 
   case kind
   of "RecordDecl":
-    emitted.incl(name)
+    #emitted.incl(name)
     return record(declaration, headerFile, renamer)
 
   of "EnumDecl":
-    emitted.incl(name)
+    #emitted.incl(name)
     return `enum`(declaration, renamer)
+
+  of "TypedefDecl":
+    #if not (name in emitted):
+    return typedef(declaration, renamer)
+
+  of "VarDecl", "FunctionDecl", "StaticAssertDecl", "EmptyDecl":
+    return ""
+
+  else: error &"Henka does not support '{kind}' declarations yet."
+
+
+proc varOrFuncBindingFor(
+  declaration: JsonNode, 
+  headerFile: string, 
+  renamer: Renamer
+): string =
+  let kind = declaration.astKind
+
+  case kind
+  of "VarDecl":
+    return vardecl(declaration, headerFile, renamer)
 
   of "FunctionDecl":
     return function(declaration, headerFile, renamer)
 
-  of "TypedefDecl":
-    if not (name in emitted):
-      return typedef(declaration, renamer)
-
-  of "VarDecl":
-    return vardecl(declaration, headerFile, renamer)
-
-  of "StaticAssertDecl", "EmptyDecl":
+  of "RecordDecl", "EnumDecl", "TypedefDecl", "StaticAssertDecl", "EmptyDecl":
     return ""
 
   else: error &"Henka does not support '{kind}' declarations yet."
@@ -64,17 +93,37 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
 
   let projectDir = getCurrentDir()
   var emitted: HashSet[string]
+
   var headerFile = ""
+  var types = ""
 
   for declaration in declarations.filterIt(it.isUserDeclaration):
     declaration.updateLocation(headerFile)
 
     if headerFile.startsWith(projectDir):
       let relativeHeaderFile = headerFile.relativePath(projectDir)
-      let binding = bindingFor(declaration, relativeHeaderFile, emitted, renamer)
+      let binding = typeBindingFor(declaration, relativeHeaderFile, emitted, renamer)
 
       if binding.len > 0:
-        result &= binding & "\n"
+        types &= binding & "\n"
+
+  if types.len > 0:
+    types = "type\n" & types
+
+  headerFile = ""
+  var varsAndFuncs = ""
+
+  for declaration in declarations.filterIt(it.isUserDeclaration):
+    declaration.updateLocation(headerFile)
+
+    if headerFile.startsWith(projectDir):
+      let relativeHeaderFile = headerFile.relativePath(projectDir)
+      let binding = varOrFuncBindingFor(declaration, relativeHeaderFile, renamer)
+
+      if binding.len > 0:
+        varsAndFuncs &= binding & "\n"
+
+  result = types & "\n" & varsAndFuncs
 
 
 type CliConfig = object
