@@ -10,6 +10,13 @@ proc isUserDeclaration(node: JsonNode): bool =
   not node.isImplicit and not node.isInvalid and hasLocation
 
 
+proc updateLocation(declaration: JsonNode, current: var string) =
+  let newLocation = declaration.location.file
+
+  if newLocation.len > 0:
+    current = newLocation
+
+
 proc collectCompleteRecords(declarations: JsonNode, projectDir: string): HashSet[string] =
   var headerFile = ""
 
@@ -25,33 +32,29 @@ proc collectCompleteRecords(declarations: JsonNode, projectDir: string): HashSet
       result.incl(declaration.resolveName)
 
 
-proc updateLocation(declaration: JsonNode, current: var string) =
-  let newLocation = declaration.location.file
-
-  if newLocation.len > 0:
-    current = newLocation
-
-
 proc typeBindingFor(
-  declaration: JsonNode, 
-  headerFile: string, 
-  emitted: var HashSet[string],
+  declaration: JsonNode,
+  headerFile: string,
+  completeRecords: HashSet[string],
   renamer: Renamer
 ): string =
   let kind = declaration.astKind
-  let name = declaration.name
 
   case kind
   of "RecordDecl":
-    #emitted.incl(name)
+    let isForwardDeclaration = declaration.isForwardDeclaration
+    let hasCompleteDefinition = declaration.resolveName in completeRecords
+    let shouldSkipForwardDeclaration = isForwardDeclaration and hasCompleteDefinition
+
+    if shouldSkipForwardDeclaration:
+      return ""
+
     return record(declaration, headerFile, renamer)
 
   of "EnumDecl":
-    #emitted.incl(name)
     return `enum`(declaration, renamer)
 
   of "TypedefDecl":
-    #if not (name in emitted):
     return typedef(declaration, renamer)
 
   of "VarDecl", "FunctionDecl", "StaticAssertDecl", "EmptyDecl":
@@ -92,7 +95,7 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
     return
 
   let projectDir = getCurrentDir()
-  var emitted: HashSet[string]
+  let completeRecords = collectCompleteRecords(declarations, projectDir)
 
   var headerFile = ""
   var types = ""
@@ -102,7 +105,7 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
 
     if headerFile.startsWith(projectDir):
       let relativeHeaderFile = headerFile.relativePath(projectDir)
-      let binding = typeBindingFor(declaration, relativeHeaderFile, emitted, renamer)
+      let binding = typeBindingFor(declaration, relativeHeaderFile, completeRecords, renamer)
 
       if binding.len > 0:
         types &= binding & "\n"
