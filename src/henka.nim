@@ -135,7 +135,8 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
       if binding.len > 0:
         varsAndFuncs &= binding & "\n"
 
-  result = types & "\n" & varsAndFuncs
+  let passCPragma = "{.passC: \"-Wno-error=incompatible-function-pointer-types\".}\n\n"
+  result = passCPragma & types & "\n" & varsAndFuncs
 
 
 type CliConfig = object
