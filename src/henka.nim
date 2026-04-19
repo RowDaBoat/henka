@@ -99,6 +99,7 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
   let completeRecords = collectCompleteRecords(declarations, projectDir)
 
   var headerFile = ""
+  var rootDir = ""
   var types = ""
   var forwardDeclarations: HashSet[string]
   var dupedEnums = ""
@@ -107,7 +108,10 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
     declaration.updateLocation(headerFile)
 
     if headerFile.startsWith(projectDir):
-      let relativeHeaderFile = headerFile.relativePath(projectDir)
+      if rootDir.len == 0:
+        rootDir = headerFile.parentDir
+
+      let relativeHeaderFile = headerFile.relativePath(rootDir)
       let (binding, dupedEnumValues) = typeBindingFor(declaration, relativeHeaderFile, completeRecords, forwardDeclarations, renamer)
 
       dupedEnums &= dupedEnumValues
@@ -125,7 +129,7 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
     declaration.updateLocation(headerFile)
 
     if headerFile.startsWith(projectDir):
-      let relativeHeaderFile = headerFile.relativePath(projectDir)
+      let relativeHeaderFile = headerFile.relativePath(rootDir)
       let binding = varOrFuncBindingFor(declaration, relativeHeaderFile, renamer)
 
       if binding.len > 0:
