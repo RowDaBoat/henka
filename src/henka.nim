@@ -1,5 +1,5 @@
 import std/[json, os, strformat, sets, strutils, sequtils]
-import node, record, enumdecl, typedef, function, vardecl, error, compileast, renamer
+import node, recordDecl, enumDecl, typedefDecl, functionDecl, varDecl, error, compileast, renamer
 import cliquet
 export renamer
 
@@ -36,46 +36,46 @@ proc typeBindingFor(
   declaration: JsonNode,
   headerFile: string,
   completeRecords: HashSet[string],
+  forwardDeclarations: var HashSet[string],
   renamer: Renamer
-): string =
+): (string, string) =
   let kind = declaration.astKind
 
   case kind
   of "RecordDecl":
     let isForwardDeclaration = declaration.isForwardDeclaration
     let hasCompleteDefinition = declaration.resolveName in completeRecords
-    let shouldSkipForwardDeclaration = isForwardDeclaration and hasCompleteDefinition
+    let isDuplicateForwardDeclaration = isForwardDeclaration and declaration.resolveName in forwardDeclarations
 
-    if shouldSkipForwardDeclaration:
-      return ""
+    if (isForwardDeclaration and hasCompleteDefinition) or isDuplicateForwardDeclaration:
+      return ("", "")
 
-    return record(declaration, headerFile, renamer)
+    if isForwardDeclaration:
+      forwardDeclarations.incl(declaration.resolveName)
+
+    return recordDecl(declaration, headerFile, renamer)
 
   of "EnumDecl":
-    return `enum`(declaration, renamer)
+    return enumDecl(declaration, renamer)
 
   of "TypedefDecl":
-    return typedef(declaration, renamer)
+    return (typedefDecl(declaration, renamer), "")
 
   of "VarDecl", "FunctionDecl", "StaticAssertDecl", "EmptyDecl":
-    return ""
+    return ("", "")
 
   else: error &"Henka does not support '{kind}' declarations yet."
 
 
-proc varOrFuncBindingFor(
-  declaration: JsonNode, 
-  headerFile: string, 
-  renamer: Renamer
-): string =
+proc varOrFuncBindingFor(declaration: JsonNode, headerFile: string, renamer: Renamer): string =
   let kind = declaration.astKind
 
   case kind
   of "VarDecl":
-    return vardecl(declaration, headerFile, renamer)
+    return varDecl(declaration, headerFile, renamer)
 
   of "FunctionDecl":
-    return function(declaration, headerFile, renamer)
+    return functionDecl(declaration, headerFile, renamer)
 
   of "RecordDecl", "EnumDecl", "TypedefDecl", "StaticAssertDecl", "EmptyDecl":
     return ""
@@ -99,19 +99,23 @@ proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): stri
 
   var headerFile = ""
   var types = ""
+  var forwardDeclarations: HashSet[string]
+  var dupedEnums = ""
 
   for declaration in declarations.filterIt(it.isUserDeclaration):
     declaration.updateLocation(headerFile)
 
     if headerFile.startsWith(projectDir):
       let relativeHeaderFile = headerFile.relativePath(projectDir)
-      let binding = typeBindingFor(declaration, relativeHeaderFile, completeRecords, renamer)
+      let (binding, dupedEnumValues) = typeBindingFor(declaration, relativeHeaderFile, completeRecords, forwardDeclarations, renamer)
+
+      dupedEnums &= dupedEnumValues
 
       if binding.len > 0:
         types &= binding & "\n"
 
   if types.len > 0:
-    types = "type\n" & types
+    types = "type\n" & types & "\n" & dupedEnums
 
   headerFile = ""
   var varsAndFuncs = ""

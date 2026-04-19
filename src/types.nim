@@ -71,7 +71,10 @@ proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): st
     return parseFunctionPointerQualType(typ, renamer)
 
   if typ.endsWith(" *") or (typ.endsWith("*") and typ.len > 1):
-    let base = typ[0..^2].strip()
+    var base = typ[0..^2].strip()
+    base.removeSuffix(" const")
+    base.removeSuffix("*const")
+    base = base.strip()
 
     if base == "char":
       return "cstring"
@@ -80,6 +83,20 @@ proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): st
       return "pointer"
 
     return "ptr " & parseQualType(base, renamer)
+
+  if typ.endsWith("]"):
+    let bracketStart = typ.find('[')
+    let baseType = parseQualType(typ[0..<bracketStart], renamer)
+    var dimensions: seq[string]
+    var rest = typ[bracketStart..^1]
+    while rest.len > 0 and rest.startsWith("["):
+      let closeIndex = rest.find(']')
+      dimensions.add(rest[1..<closeIndex])
+      rest = rest[closeIndex + 1..^1]
+    result = baseType
+    for i in countdown(dimensions.high, 0):
+      result = &"array[{dimensions[i]}, {result}]"
+    return result
 
   if typ.startsWith("struct "):
     let name = if unnamed == "": typ[7..^1] else: unnamed

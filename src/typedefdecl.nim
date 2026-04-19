@@ -2,7 +2,7 @@ import std/[json, strformat]
 import node, types, renamer, pragmas
 
 
-proc typedef*(node: JsonNode, renamer: Renamer): string =
+proc typedefDecl*(node: JsonNode, renamer: Renamer): string =
   let inner = node.inner
 
   if inner.isNil or inner.kind != JArray or inner.len == 0:

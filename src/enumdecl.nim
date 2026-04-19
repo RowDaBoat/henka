@@ -1,4 +1,4 @@
-import std/[json, strutils, strformat, sequtils]
+import std/[json, strutils, strformat, sequtils, sets]
 import node, renamer, pragmas
 
 
@@ -31,16 +31,41 @@ proc enumConstant(constant: JsonNode, renamer: Renamer): string =
   else: &"    {renamed}{pragmas}"
 
 
-proc `enum`*(node: JsonNode, renamer: Renamer): string =
+proc deduplicateConstants(constants: seq[JsonNode]): tuple[unique: seq[JsonNode], duplicates: seq[JsonNode]] =
+  var seenValues: HashSet[string]
+  var nextImplicitValue = 0
+
+  for constant in constants:
+    let value = explicitValue(constant)
+    let isExplicit = value.len > 0
+    let resolvedValue = if isExplicit: value else: $nextImplicitValue
+    let isDuplicate = resolvedValue in seenValues
+
+    if isDuplicate:
+      result.duplicates.add(constant)
+    else:
+      result.unique.add(constant)
+      seenValues.incl(resolvedValue)
+
+    nextImplicitValue = parseInt(resolvedValue) + 1
+
+
+proc enumDecl*(node: JsonNode, renamer: Renamer, prefix: string = ""): (string, string) =
   let constants = node.inner.getElems.filterIt(it.isEnumConstantDeclaration)
-  let hasEnumConstants = constants.len > 0
 
-  if not hasEnumConstants:
-    return ""
+  if constants.len == 0:
+    return ("", "")
 
-  let (renamed, userPragmas) = renamer(EnumType, node.name)
+  let (uniqueConstants, duplicateConstants) = deduplicateConstants(constants)
+  let name = (if prefix.len > 0: &"{prefix}_" else: "") & node.resolveName
+  let (renamed, userPragmas) = renamer(EnumType, name)
   let pragmas = pragmas(@["size: sizeof(cint)"] & userPragmas)
-  result = &"  {renamed}*" & pragmas & " = enum\n"
+  result[0] = &"  {renamed}*" & pragmas & " = enum\n"
 
-  let constantDeclarations = constants.mapIt(it.enumConstant(renamer))
-  result &= constantDeclarations.join(",\n") & "\n"
+  let constantDeclarations = uniqueConstants.mapIt(it.enumConstant(renamer))
+  result[0] &= constantDeclarations.join(",\n") & "\n"
+
+  for constant in duplicateConstants:
+    let value = explicitValue(constant)
+    let (constantName, _) = renamer(EnumValue, constant.name)
+    result[1] &= &"template {constantName}*(_: typedesc[{renamed}]): {renamed} = {value}\n"

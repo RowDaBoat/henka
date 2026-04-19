@@ -16,7 +16,7 @@ proc isParameterDeclaration(node: JsonNode): bool =
   node.astKind == "ParmVarDecl"
 
 
-proc function*(node: JsonNode, header: string, renamer: Renamer): string =
+proc functionDecl*(node: JsonNode, header: string, renamer: Renamer): string =
   let inner = node.inner
 
   if inner.isNil or inner.kind != JArray:
@@ -25,9 +25,11 @@ proc function*(node: JsonNode, header: string, renamer: Renamer): string =
   let nimReturnType = node.typ.returnTypeToNim(renamer)
 
   var parameters: seq[string]
+  var unnamedIndex = 0
 
   for parameter in inner.getElems.filterIt(it.isParameterDeclaration):
-    let (renamed, userPragmas) = renamer(Parameter, parameter.name)
+    let parameterName = if parameter.name.len > 0: parameter.name else: (inc unnamedIndex; &"a{unnamedIndex - 1}")
+    let (renamed, userPragmas) = renamer(Parameter, parameterName)
     let pragmas = pragmas(userPragmas)
     let parameterType = qualTypeToNim(parameter.typ, renamer)
     parameters.add(renamed & pragmas & ": " & parameterType)
