@@ -50,7 +50,16 @@ proc deduplicateConstants(constants: seq[JsonNode]): tuple[unique: seq[JsonNode]
     nextImplicitValue = parseInt(resolvedValue) + 1
 
 
-proc enumDecl*(node: JsonNode, renamer: Renamer, prefix: string = ""): (string, string) =
+proc enumPragmas(header: string, name: string, renamed: string): seq[string] =
+  result.add "size: sizeof(cint)"
+
+  if header.len > 0:
+    let cName = &"enum {name}"
+    result.add importc(cName, renamed)
+    result.add(&"header: \"{header}\"")
+
+
+proc enumDecl*(node: JsonNode, renamer: Renamer, header: string = "", prefix: string = ""): (string, string) =
   let constants = node.inner.getElems.filterIt(it.isEnumConstantDeclaration)
 
   if constants.len == 0:
@@ -59,7 +68,7 @@ proc enumDecl*(node: JsonNode, renamer: Renamer, prefix: string = ""): (string, 
   let (uniqueConstants, duplicateConstants) = deduplicateConstants(constants)
   let name = (if prefix.len > 0: &"{prefix}_" else: "") & node.resolveName
   let (renamed, userPragmas) = renamer(EnumType, name)
-  let pragmas = pragmas(@["size: sizeof(cint)"] & userPragmas)
+  let pragmas = pragmas(enumPragmas(header, name, renamed) & userPragmas)
   result[0] = &"  {renamed}*" & pragmas & " = enum\n"
 
   let constantDeclarations = uniqueConstants.mapIt(it.enumConstant(renamer))

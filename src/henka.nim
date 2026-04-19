@@ -56,7 +56,7 @@ proc typeBindingFor(
     return recordDecl(declaration, headerFile, renamer)
 
   of "EnumDecl":
-    return enumDecl(declaration, renamer)
+    return enumDecl(declaration, renamer, headerFile)
 
   of "TypedefDecl":
     return (typedefDecl(declaration, renamer), "")

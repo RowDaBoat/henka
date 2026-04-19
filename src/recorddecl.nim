@@ -2,7 +2,7 @@ import std/[json, strformat, strutils, tables]
 import node, types, renamer, pragmas, enumdecl
 
 
-proc recordPragmas(isUnion: bool, isForwardDeclaration: bool, header: string): seq[string] =
+proc recordPragmas(isUnion: bool, isForwardDeclaration: bool, header: string, name: string, renamed: string): seq[string] =
   if isForwardDeclaration:
     result.add "incompleteStruct"
   elif isUnion:
@@ -10,7 +10,11 @@ proc recordPragmas(isUnion: bool, isForwardDeclaration: bool, header: string): s
   else:
     result.add "bycopy"
 
-  if header.len > 0:
+  let hasHeader = header.len > 0
+  if hasHeader:
+    let tag = if isUnion: "union" else: "struct"
+    let cName = &"{tag} {name}"
+    result.add importc(cName, renamed)
     result.add(&"header: \"{header}\"")
 
 
@@ -66,7 +70,7 @@ proc nestedDeclarations(node: JsonNode, parentName: string, header: string, rena
       result[1] &= aliases
       result[2][child.name] = nestedTypeName(child, parentName, renamer)
     elif child.isNestedEnumDeclaration:
-      let (enumResult, aliases) = enumDecl(child, renamer, parentName)
+      let (enumResult, aliases) = enumDecl(child, renamer, header, parentName)
       result[0] &= enumResult
       result[1] &= aliases
       result[2][child.name] = nestedTypeName(child, parentName, renamer)
@@ -77,7 +81,7 @@ proc recordDecl*(node: JsonNode, header: string, renamer: Renamer, prefix: strin
   let recordKind = if isUnion: UnionType else: StructType
   let name = (if prefix.len > 0: &"{prefix}_" else: "") & node.resolveName
   let (renamed, userPragmas) = renamer(recordKind, name)
-  let pragmas = pragmas(recordPragmas(isUnion, node.isForwardDeclaration, header) & userPragmas)
+  let pragmas = pragmas(recordPragmas(isUnion, node.isForwardDeclaration, header, name, renamed) & userPragmas)
 
   var nestedNames: Table[string, string]
 
