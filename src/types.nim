@@ -232,12 +232,7 @@ proc astTypeToNim*(typeNode: JsonNode, renamer: Renamer): string =
     return constantArrayType(typeNode, renamer)
 
   of "PointerType":
-    let baseType = typeNode.inner[0].astTypeToNim(renamer)
-
-    if baseType == "void":
-      return "pointer"
-
-    return "ptr " & baseType
+    return pointerType(typeNode, renamer)
 
   of "IncompleteArrayType":
     return "UncheckedArray[" & typeNode.inner[0].astTypeToNim(renamer) & "]"
