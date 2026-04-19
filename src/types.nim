@@ -29,7 +29,7 @@ proc primitiveToNim(typ: string): string =
   of "uint32_t": "uint32"
   of "uint64_t": "uint64"
   of "size_t": "csize_t"
-  else: typ
+  else: ""
 
 
 proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): string
@@ -110,7 +110,12 @@ proc parseQualType(qualType: string, renamer: Renamer, unnamed: string = ""): st
     let name = if unnamed == "": typ[5..^1] else: unnamed
     return renamer(EnumType, name)[0]
 
-  primitiveToNim(typ)
+  let primitiveType = primitiveToNim(typ)
+
+  if primitiveType.len > 0:
+    return primitiveType
+
+  renamer(Typedef, typ)[0]
 
 
 proc qualTypeToNim*(typeRef: JsonNode, renamer: Renamer): string =
@@ -215,8 +220,7 @@ proc astTypeToNim*(typeNode: JsonNode, renamer: Renamer): string =
     let typedefName = typeNode.decl.name
     let primitiveType = primitiveToNim(typedefName)
 
-    let isPrimitive = primitiveType != typedefName
-    if isPrimitive:
+    if primitiveType.len > 0:
       return primitiveType
 
     return renamer(Typedef, typedefName)[0]
