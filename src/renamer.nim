@@ -11,7 +11,7 @@ type LabelKind* = enum
 
 type RenameResult* = tuple[name: string, pragmas: seq[string]]
 
-type Renamer* = proc(kind: LabelKind, label: string): RenameResult
+type Renamer* = proc(kind: LabelKind, name: string): RenameResult
 
 
 const nimKeywords = [
@@ -42,11 +42,15 @@ proc dedupUnderscores*(label: string): string =
     wasUnderscore = isUnderscore
 
 
+proc sanitizer*(renamer: Renamer): Renamer =
+  proc (kind: LabelKind, label: string): RenameResult =
+    let dedupedLabel = label.dedupUnderscores
+    let name = case kind
+      of EnumType:   "enum_" & dedupedLabel
+      of StructType: "struct_" & dedupedLabel
+      of UnionType:  "union_" & dedupedLabel
+      else: dedupedLabel.escapeKeyword
+    renamer(kind, name)
+
 proc defaultRenamer*(kind: LabelKind, label: string): RenameResult =
-  let dedupedLabel = label.dedupUnderscores
-  let name = case kind
-    of EnumType:   "enum_" & dedupedLabel
-    of StructType: "struct_" & dedupedLabel
-    of UnionType:  "union_" & dedupedLabel
-    else: dedupedLabel.escapeKeyword
-  (name: name, pragmas: @[])
+  result = (name: label, pragmas: @[])

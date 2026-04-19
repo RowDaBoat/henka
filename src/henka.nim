@@ -90,6 +90,7 @@ proc generateAst*(headers: seq[string], clangArgs: string = ""): string =
 proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): string =
   let root = jsonAst.parseJson()
   let declarations = root.inner
+  let renamer = sanitizer(renamer)
 
   if declarations.isNil or declarations.kind != JArray:
     return
