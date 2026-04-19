@@ -10,9 +10,7 @@ proc recordPragmas(isUnion: bool, isForwardDeclaration: bool, header: string): s
   else:
     result.add "bycopy"
 
-  let hasHeader = header.len > 0
-  let shouldIncludeHeader = hasHeader and not isForwardDeclaration
-  if shouldIncludeHeader:
+  if header.len > 0:
     result.add(&"header: \"{header}\"")
 
 
