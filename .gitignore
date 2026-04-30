@@ -2,3 +2,4 @@ bin/
 nimcache/
 headers
 generated
+*.local*
