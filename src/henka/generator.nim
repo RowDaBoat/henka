@@ -91,6 +91,7 @@ proc generate *(
     symbolOverride    : SymbolOverride     = defaultSymbolOverride;
     unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer;
     typeMapper        : TypeMapper         = defaultTypeMapper;
+    pragmaOverride    : PragmaOverride     = defaultPragmaOverride;
     singleFileParse   : bool               = true;
     linkMode          : LinkMode           = LinkMode.header;
     dynlibName        : system.string      = "";
@@ -118,6 +119,7 @@ proc generate *(
     symbolOverride    : symbolOverride,
     unnamedFieldNamer : unnamedFieldNamer,
     typeMapper        : typeMapper,
+    pragmaOverride    : pragmaOverride,
     linkMode          : linkMode,
     dynlibName        : dynlibName,
     dynlibPath        : dynlibPath)
@@ -186,13 +188,14 @@ proc generate *(
     symbolOverride    : SymbolOverride     = defaultSymbolOverride;
     unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer;
     typeMapper        : TypeMapper         = defaultTypeMapper;
+    pragmaOverride    : PragmaOverride     = defaultPragmaOverride;
     linkMode          : LinkMode           = LinkMode.header;
     dynlibName        : system.string      = "";
     dynlibPath        : system.string      = "";
   ) :system.string=
   let generated = generate(@[inputFile], clangArgs, isCpp, includeDir,
     renamer, constructorName, destructorName, symbolFilter, symbolOverride,
-    unnamedFieldNamer, typeMapper, singleFileParse = false,
+    unnamedFieldNamer, typeMapper, pragmaOverride, singleFileParse = false,
     linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath)
   if generated.modules.len > 0: result = generated.modules[0].definitions
   else: result = ""

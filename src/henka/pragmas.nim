@@ -114,31 +114,32 @@ proc structPragmas *(conv :var Converter; cName :system.string; isForward :bool;
       else            : "\"" & cName & "\""
     pairs.add (conv.importPragmaKey, importValue)
     pairs.add conv.headerPragma
+  if conv.pragmaOverride != nil: pairs = conv.pragmaOverride(StructType, cName, pairs)
   result = conv.chainPragmas(pairs)
 
 
 proc enumPragmas *(conv :var Converter; cName :system.string) :astTF.Id=
-  if conv.linkMode == LinkMode.dynlib:
-    result = conv.chainPragmas(@[
-      ("size", "sizeof(cint)")])
-  else:
+  var pairs :seq[(system.string, system.string)]= @[]
+  pairs.add ("size", "sizeof(cint)")
+  if conv.linkMode != LinkMode.dynlib:
     let importValue =
       if conv.isCpp : "\"" & cName & "\""
       else          : "\"enum " & cName & "\""
-    result = conv.chainPragmas(@[
-      ("size",               "sizeof(cint)"),
-      (conv.importPragmaKey, importValue),
-      conv.headerPragma])
+    pairs.add (conv.importPragmaKey, importValue)
+    pairs.add conv.headerPragma
+  if conv.pragmaOverride != nil: pairs = conv.pragmaOverride(EnumType, cName, pairs)
+  result = conv.chainPragmas(pairs)
 
 
 proc funcPragmas *(conv :var Converter; cName :system.string) :astTF.Id=
+  var pairs :seq[(system.string, system.string)]= @[]
   if conv.isCpp:
-    result = conv.chainPragmas(@[
-      (conv.importPragmaKey, "\"" & cName & "(@)\""),
-      conv.linkPragma])
+    pairs.add (conv.importPragmaKey, "\"" & cName & "(@)\"")
+    pairs.add conv.linkPragma
   else:
-    result = conv.chainPragmas(@[
-      (conv.importPragmaKey, "\"" & cName & "\""),
-      ("cdecl",              ""),
-      conv.linkPragma])
+    pairs.add (conv.importPragmaKey, "\"" & cName & "\"")
+    pairs.add ("cdecl", "")
+    pairs.add conv.linkPragma
+  if conv.pragmaOverride != nil: pairs = conv.pragmaOverride(Proc, cName, pairs)
+  result = conv.chainPragmas(pairs)
 

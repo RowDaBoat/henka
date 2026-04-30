@@ -40,3 +40,5 @@ proc defaultTypeMapper*(name :system.string) :Option[system.string]=
     if name == mapping[0]: return some(mapping[1])
   result = none(system.string)
 
+proc defaultPragmaOverride*(kind :LabelKind; name :system.string; defaults :seq[(system.string, system.string)]) :seq[(system.string, system.string)]= defaults
+
