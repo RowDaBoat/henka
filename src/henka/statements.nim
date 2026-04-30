@@ -195,7 +195,11 @@ proc toProcedure *(conv :var Converter; cursor :CXCursor; name :string) :cint=
       conv.ast.data.bindings[argIds[idx]].next = some(argIds[idx + 1])
     firstArg = some(argIds[0])
   let importName    = if conv.isCpp: cursor.qualifiedName else: name
-  let pragmaId      = conv.funcPragmas(importName)
+  var pragmaId      = conv.funcPragmas(importName)
+  if clang_Cursor_isVariadic(cursor) != 0:
+    let varargsId = conv.addPragma("varargs")
+    conv.ast.data.pragmas[varargsId].next = some(pragmaId)
+    pragmaId = varargsId
   let commentOpt    = conv.add_comment(cursor)
   if commentOpt.isSome:
     conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
@@ -270,8 +274,9 @@ proc toMacro *(conv :var Converter; cursor :CXCursor; name :string) :cint=
         let commentId = conv.add_comment(commentText, false)
         conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentId)))
       else:
+        let mapped      = if conv.valueMapper != nil: conv.valueMapper(value) else: value
         let nameIdent   = conv.addRenamed(Constant, name)
-        let targetIdent = conv.addName(value)
+        let targetIdent = conv.addName(mapped)
         let aliasId     = conv.ast.add_alias(Alias(name: nameIdent, target: some(targetIdent)))
         conv.add_statement_chained(Statement(kind: astTF.sAlias, alias: StatementAlias(id: aliasId)))
   if not tokens.isNil:

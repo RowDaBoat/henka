@@ -1,5 +1,18 @@
 # Henka TODO
 
+## v1 feature parity (Missing features from butcher)
+- [x] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations (fixed in slate codegen)
+- [ ] Union pragma — `{.union.}` for C union types (currently only emits `bycopy` for structs)
+- [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
+- [ ] `sanitizer` renamer wrapper — composable wrapper that dedup-underscores and escapes keywords before passing to user renamer. Current `defaultRenamer` bakes this in and isn't composable
+- [ ] Relative header paths in pragmas — butcher computed `relativePath(rootDir)` for header pragmas instead of just `lastPathPart`
+- [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
+- [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
+- [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.)
+- [ ] Two-pass generation: collect all types first into a `type` block, then emit procs/vars — 
+      gives proper ordering and avoids interleaved type/proc output
+
+
 ## Converter Bugs
 - [ ] Generated libclang bindings are missing CXTranslationUnit parse option constants (C macros expanding to integer literals — converter skips them as function-like or unknown expansions)
 - [ ] `SingleFileParse` breaks anonymous typedef structs — types resolve to `cint` instead of proper struct types (only affects C headers with `typedef struct { ... } Name;` pattern)
@@ -9,18 +22,14 @@
 - [ ] Missing `long double` → `clongdouble` mapping (`CXType_LongDouble` = 23 not handled)
 - [ ] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — butcher used `UncheckedArray` which is more idiomatic Nim for C's `T[]` parameters
 - [ ] `volatile`/`restrict` qualifier stripping — libclang usually resolves these but may not always
+- [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
 
 
-## v1 feature parity (Missing features from butcher)
-- [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.)
-- [ ] Two-pass generation: collect all types first into a `type` block, then emit procs/vars — gives proper ordering and avoids interleaved type/proc output
-- [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
-- [ ] `sanitizer` renamer wrapper — composable wrapper that dedup-underscores and escapes keywords before passing to user renamer. Current `defaultRenamer` bakes this in and isn't composable
-- [ ] Relative header paths in pragmas — butcher computed `relativePath(rootDir)` for header pragmas instead of just `lastPathPart`
-- [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
-- [ ] Union pragma — `{.union.}` for C union types (currently only emits `bycopy` for structs)
-- [ ] Variadic function support — detect `clang_isFunctionTypeVariadic` and emit `{.varargs.}` pragma
-- [ ] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations
+## Architecture
+- [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
+- [ ] The `passthrough` pragma for `__attribute__`/`_Pragma` macros should emit proper `{.pragma.}` declarations instead of comments
+- [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
+- [ ] Per-module statement chain tracking for true multi-module output (currently all statements chain together, split by module.body)
 
 
 ## Testing
@@ -33,13 +42,6 @@
 - [ ] Test with godot-cpp: verify generated bindings compile against Godot engine
 - [ ] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
-
-
-## Architecture
-- [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
-- [ ] The `passthrough` pragma for `__attribute__`/`_Pragma` macros should emit proper `{.pragma.}` declarations instead of comments
-- [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
-- [ ] Per-module statement chain tracking for true multi-module output (currently all statements chain together, split by module.body)
 
 
 ## Documentation

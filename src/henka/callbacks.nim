@@ -40,5 +40,29 @@ proc defaultTypeMapper*(name :system.string) :Option[system.string]=
     if name == mapping[0]: return some(mapping[1])
   result = none(system.string)
 
+const standardValueMappings *:seq[(system.string, system.string)]= @[
+  ("UINT8_MAX",  "high(uint8)"),
+  ("UINT16_MAX", "high(uint16)"),
+  ("UINT32_MAX", "high(uint32)"),
+  ("UINT64_MAX", "high(uint64)"),
+  ("INT8_MAX",   "high(int8)"),
+  ("INT16_MAX",  "high(int16)"),
+  ("INT32_MAX",  "high(int32)"),
+  ("INT64_MAX",  "high(int64)"),
+  ("INT8_MIN",   "low(int8)"),
+  ("INT16_MIN",  "low(int16)"),
+  ("INT32_MIN",  "low(int32)"),
+  ("INT64_MIN",  "low(int64)"),
+  ("SIZE_MAX",   "high(csize_t)"),
+  ("NAN",        "NaN"),
+  ("INFINITY",   "Inf"),
+]
+
+proc defaultValueMapper *(value :system.string) :system.string=
+  result = value
+  for mapping in standardValueMappings:
+    if result == "( " & mapping[0] & " )": return mapping[1]
+    if result == mapping[0]: return mapping[1]
+
 proc defaultPragmaOverride*(kind :LabelKind; name :system.string; defaults :seq[(system.string, system.string)]) :seq[(system.string, system.string)]= defaults
 

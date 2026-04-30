@@ -26,6 +26,7 @@ type NamePattern       * = proc(className :system.string) :system.string
 type UnnamedFieldNamer * = proc(parentName :system.string; index :int) :system.string
 type TypeMapper        * = proc(name :system.string) :Option[system.string]
 type PragmaOverride    * = proc(kind :LabelKind; name :system.string; defaults :seq[(system.string, system.string)]) :seq[(system.string, system.string)]
+type ValueMapper       * = proc(value :system.string) :system.string
 
 type Converter * = object
   ast                *:astTF.Ast
@@ -49,6 +50,7 @@ type Converter * = object
   unnamedFieldNamer  *:UnnamedFieldNamer
   typeMapper         *:TypeMapper
   pragmaOverride     *:PragmaOverride
+  valueMapper        *:ValueMapper
 
 type ChildCtx * = object
   conv  *:ptr Converter
