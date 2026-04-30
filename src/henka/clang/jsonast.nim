@@ -1,6 +1,9 @@
+# @fileovewview Old -ast-dump=json helper, for reference
 import std/[os, osproc, strformat, strutils, sequtils]
-import error
 
+proc error*(message: string) =
+  stderr.writeLine message
+  quit(1)
 
 proc compileAstFrom*(headerPaths: seq[string], extraArgs: string = ""): string =
   let wrapperPath = getCurrentDir() / "_henka_tmp.h"

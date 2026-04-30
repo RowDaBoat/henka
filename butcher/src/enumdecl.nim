@@ -78,3 +78,4 @@ proc enumDecl*(node: JsonNode, renamer: Renamer, header: string = "", prefix: st
     let value = explicitValue(constant)
     let (constantName, _) = renamer(EnumValue, constant.name)
     result[1] &= &"template {constantName}*(_: typedesc[{renamed}]): {renamed} = {value}\n"
+

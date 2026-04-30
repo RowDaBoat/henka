@@ -6,14 +6,21 @@
 - [ ] Godot-cpp: 3 `UNSUPPORTED_0` from `CXType_Invalid` on template edge cases (`MIN`, `MAX`, `CLAMP` with `decltype(auto)` return)
 - [ ] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) come through as raw text instead of resolved Nim types
 - [ ] `dynlib` mode still needs `header:` on `bycopy` types with `importc` — should generate pure Nim structs without `importc` to eliminate header dependency entirely
+- [ ] Missing `long double` → `clongdouble` mapping (`CXType_LongDouble` = 23 not handled)
+- [ ] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — butcher used `UncheckedArray` which is more idiomatic Nim for C's `T[]` parameters
+- [ ] `volatile`/`restrict` qualifier stripping — libclang usually resolves these but may not always
 
 
 ## v1 feature parity (Missing features from butcher)
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.)
 - [ ] Two-pass generation: collect all types first into a `type` block, then emit procs/vars — gives proper ordering and avoids interleaved type/proc output
-- [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated template workarounds for duplicates
+- [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
 - [ ] `sanitizer` renamer wrapper — composable wrapper that dedup-underscores and escapes keywords before passing to user renamer. Current `defaultRenamer` bakes this in and isn't composable
 - [ ] Relative header paths in pragmas — butcher computed `relativePath(rootDir)` for header pragmas instead of just `lastPathPart`
+- [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
+- [ ] Union pragma — `{.union.}` for C union types (currently only emits `bycopy` for structs)
+- [ ] Variadic function support — detect `clang_isFunctionTypeVariadic` and emit `{.varargs.}` pragma
+- [ ] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations
 
 
 ## Testing

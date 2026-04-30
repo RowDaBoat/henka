@@ -1,35 +1,3 @@
-import std/strformat
-
-
-type LabelKind* = enum
-  Variable, Constant
-  Proc, Parameter
-  EnumType, EnumValue
-  StructType, UnionType, Field
-  Typedef
-
-
-type RenameResult* = tuple[name: string, pragmas: seq[string]]
-
-type Renamer* = proc(kind: LabelKind, name: string): RenameResult
-
-
-const nimKeywords = [
-  "addr", "and", "as", "asm", "bind", "block", "break", "case", "cast",
-  "concept", "const", "continue", "converter", "defer", "discard", "distinct",
-  "div", "do", "elif", "else", "end", "enum", "except", "export", "finally",
-  "for", "from", "func", "if", "import", "in", "include", "interface",
-  "is", "isnot", "iterator", "let", "macro", "method", "mixin", "mod",
-  "nil", "not", "notin", "object", "of", "or", "out", "proc", "ptr",
-  "raise", "ref", "return", "shl", "shr", "static", "template", "try",
-  "tuple", "type", "using", "var", "when", "while", "xor", "yield"
-]
-
-
-proc escapeKeyword*(label: string): string =
-  if label in nimKeywords: &"`{label}`"
-  else: label
-
 
 proc dedupUnderscores*(label: string): string =
   var wasUnderscore = false
@@ -52,5 +20,3 @@ proc sanitizer*(renamer: Renamer): Renamer =
       else: dedupedLabel.escapeKeyword
     renamer(kind, name)
 
-proc defaultRenamer*(kind: LabelKind, label: string): RenameResult =
-  result = (name: label, pragmas: @[])

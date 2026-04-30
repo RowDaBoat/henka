@@ -4,19 +4,6 @@ import cliquet
 export renamer
 
 
-proc isUserDeclaration(node: JsonNode): bool =
-  let location = node.location
-  let hasLocation = not location.isNil and location.kind == JObject and location.len > 0
-  not node.isImplicit and not node.isInvalid and hasLocation
-
-
-proc updateLocation(declaration: JsonNode, current: var string) =
-  let newLocation = declaration.location.file
-
-  if newLocation.len > 0:
-    current = newLocation
-
-
 proc collectCompleteRecords(declarations: JsonNode, projectDir: string): HashSet[string] =
   var headerFile = ""
 
@@ -30,61 +17,6 @@ proc collectCompleteRecords(declarations: JsonNode, projectDir: string): HashSet
     let shouldCollect = isRecordDeclaration and isProjectFile and isCompleteDefinition
     if shouldCollect:
       result.incl(declaration.resolveName)
-
-
-proc typeBindingFor(
-  declaration: JsonNode,
-  headerFile: string,
-  completeRecords: HashSet[string],
-  forwardDeclarations: var HashSet[string],
-  renamer: Renamer
-): (string, string) =
-  let kind = declaration.astKind
-
-  case kind
-  of "RecordDecl":
-    let isForwardDeclaration = declaration.isForwardDeclaration
-    let hasCompleteDefinition = declaration.resolveName in completeRecords
-    let isDuplicateForwardDeclaration = isForwardDeclaration and declaration.resolveName in forwardDeclarations
-
-    if (isForwardDeclaration and hasCompleteDefinition) or isDuplicateForwardDeclaration:
-      return ("", "")
-
-    if isForwardDeclaration:
-      forwardDeclarations.incl(declaration.resolveName)
-
-    return recordDecl(declaration, headerFile, renamer)
-
-  of "EnumDecl":
-    return enumDecl(declaration, renamer, headerFile)
-
-  of "TypedefDecl":
-    return (typedefDecl(declaration, renamer), "")
-
-  of "VarDecl", "FunctionDecl", "StaticAssertDecl", "EmptyDecl":
-    return ("", "")
-
-  else: error &"Henka does not support '{kind}' declarations yet."
-
-
-proc varOrFuncBindingFor(declaration: JsonNode, headerFile: string, renamer: Renamer): string =
-  let kind = declaration.astKind
-
-  case kind
-  of "VarDecl":
-    return varDecl(declaration, headerFile, renamer)
-
-  of "FunctionDecl":
-    return functionDecl(declaration, headerFile, renamer)
-
-  of "RecordDecl", "EnumDecl", "TypedefDecl", "StaticAssertDecl", "EmptyDecl":
-    return ""
-
-  else: error &"Henka does not support '{kind}' declarations yet."
-
-
-proc generateAst*(headers: seq[string], clangArgs: string = ""): string =
-  compileAstFrom(headers, clangArgs)
 
 
 proc generateBindings*(jsonAst: string, renamer: Renamer = defaultRenamer): string =
