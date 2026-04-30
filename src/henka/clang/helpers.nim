@@ -3,9 +3,9 @@ from std/os import lastPathPart
 from std/strutils import startsWith
 # @deps clang
 when defined(clang_minimal):
-  import ./clang/minimal as api
+  import ./minimal as api
 else:
-  import ./clang/api
+  import ./api
 export api
 
 

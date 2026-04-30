@@ -3,3 +3,5 @@ nimcache/
 headers
 generated
 *.local*
+selfhost
+!selfhost.nim
