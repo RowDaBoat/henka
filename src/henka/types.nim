@@ -13,7 +13,7 @@ const clang_Primitives = {
   CXType_SChar, CXType_Char16, CXType_Char32, CXType_Short, CXType_Int, CXType_Long, CXType_LongLong,
   CXType_UChar, CXType_UShort, CXType_UInt, CXType_ULong, CXType_ULongLong,
   CXType_WChar, CXType_Char_S,
-  CXType_Float, CXType_Double
+  CXType_Float, CXType_Double, CXType_LongDouble
 }
 
 
@@ -44,7 +44,8 @@ proc toPrimitive*(conv: var Converter, typ: CXType): astTF.Id =
     of CXType_WChar     : "Utf32Char"
     of CXType_Char_S    : "cchar"
     of CXType_Float     : "cfloat"
-    of CXType_Double    : "cdouble"
+    of CXType_Double     : "cdouble"
+    of CXType_LongDouble : "clongdouble"
     else                : "UNKNOWN"
   )
 
@@ -157,5 +158,6 @@ proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
     of CXType_IncompleteArray :
       let elemType = clang_getArrayElementType(typ)
       let elemId = conv.convert_type(elemType)
-      conv.ast.add_type(Type(kind: astTF.tPtr, `ptr`: TypePtr(target: elemId)))
+      let arrayName = conv.addName("UncheckedArray")
+      conv.ast.add_type(Type(kind: astTF.tArray, array: TypeArray(name: some(arrayName), element: elemId)))
     else                      : conv.toUnsupported(typ)

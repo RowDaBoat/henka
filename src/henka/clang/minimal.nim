@@ -148,6 +148,7 @@ const CXType_Long*                    : cint = 18
 const CXType_LongLong*                : cint = 19
 const CXType_Float*                   : cint = 21
 const CXType_Double*                  : cint = 22
+const CXType_LongDouble*              : cint = 23
 const CXType_Pointer*                 : cint = 101
 const CXType_LValueReference*         : cint = 103
 const CXType_RValueReference*         : cint = 104

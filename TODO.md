@@ -1,6 +1,5 @@
 # Henka TODO
 
-
 ## v1 feature parity (Missing features from butcher)
 - [x] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations (fixed in slate codegen)
 - [x] Union pragma — `{.union.}` for C union types (slate codegen renders TypeObject.keyword as pragma, henka converter sets keyword + dispatches CXCursor_UnionDecl)
@@ -13,30 +12,26 @@
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 
+## v2 Converter Bugs
+- [x] Generated libclang bindings are missing CXTranslationUnit parse option constants — resolved: they're enum values, not macros; selfhost generates them correctly
+- [x] `SingleFileParse` breaks anonymous typedef structs — clang limitation: `SingleFileParse` makes clang resolve unseen anonymous typedef structs as `int`. Unfixable; use `singleFileParse = false` for headers with this pattern
+- [ ] Godot-cpp: 3 `UNSUPPORTED_0` from `CXType_Invalid` on template edge cases (`MIN`, `MAX`, `CLAMP` with `decltype(auto)` return)
+- [ ] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) come through as raw text instead of resolved Nim types
+- [ ] `dynlib` mode still needs `header:` on `bycopy` types with `importc` — should generate pure Nim structs without `importc` to eliminate header dependency entirely
+- [x] Missing `long double` → `clongdouble` mapping — added `CXType_LongDouble` to primitives set and case
+- [x] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — now uses `tArray` with `name = "UncheckedArray"`
+- [x] `volatile`/`restrict` qualifier stripping — libclang already resolves these, no henka changes needed
+- [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
+- [x] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
+- [ ] The `passthrough` pragma for `__attribute__`/`_Pragma` macros should emit proper `{.pragma.}` declarations instead of comments
+
 
 ## Other v2 tasks
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] so/dll/dylib
 - [ ] write DSL for AST
-
-
-## Converter Bugs
-- [ ] Generated libclang bindings are missing CXTranslationUnit parse option constants (C macros expanding to integer literals — converter skips them as function-like or unknown expansions)
-- [ ] `SingleFileParse` breaks anonymous typedef structs — types resolve to `cint` instead of proper struct types (only affects C headers with `typedef struct { ... } Name;` pattern)
-- [ ] Godot-cpp: 3 `UNSUPPORTED_0` from `CXType_Invalid` on template edge cases (`MIN`, `MAX`, `CLAMP` with `decltype(auto)` return)
-- [ ] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) come through as raw text instead of resolved Nim types
-- [ ] `dynlib` mode still needs `header:` on `bycopy` types with `importc` — should generate pure Nim structs without `importc` to eliminate header dependency entirely
-- [ ] Missing `long double` → `clongdouble` mapping (`CXType_LongDouble` = 23 not handled)
-- [ ] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — butcher used `UncheckedArray` which is more idiomatic Nim for C's `T[]` parameters
-- [ ] `volatile`/`restrict` qualifier stripping — libclang usually resolves these but may not always
-- [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
-- [x] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
-
-
-## Architecture
-- [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
-- [ ] The `passthrough` pragma for `__attribute__`/`_Pragma` macros should emit proper `{.pragma.}` declarations instead of comments
 - [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
+- [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
 - [ ] Per-module statement chain tracking for true multi-module output (currently all statements chain together, split by module.body)
 
 
