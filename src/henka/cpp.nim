@@ -3,17 +3,12 @@ from std/strutils import startsWith
 # @deps slate
 import slate/ast as astTF
 # @deps henka
-import ./clang
-import ./common
-import ./comments
-import ./pragmas
-import ./types
-import ./statements
+import ./[clang, common, comments, pragmas, types, statements]
 
 
-proc toMethod      *(conv :var Converter; cursor :CXCursor; name :string) :cint
-proc toConstructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
-proc toDestructor  *(conv :var Converter; cursor :CXCursor; name :string) :cint
+proc toMethod     *(conv :var Converter; cursor :CXCursor; name :string) :cint
+proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
+proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
 const OperatorPatterns *:seq[(system.string, system.string, system.string)]= @[
@@ -45,7 +40,7 @@ const OperatorPatterns *:seq[(system.string, system.string, system.string)]= @[
   ("operator/=", "`/=`", "\"# /= #\""),
 ]
 
-proc operatorInfo *(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
+proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
   if name == "operator=":
     var isMove = false
     if argc > 0:
@@ -65,7 +60,7 @@ proc operatorInfo *(name :system.string; argc :cint; cursor :CXCursor) :(system.
   result = (name, "\"#." & name & "(@)\"")
 
 
-proc toClass *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
   if name in conv.seenStructs: return CXChildVisit_Continue.cint
   conv.seenStructs.incl name
@@ -154,7 +149,7 @@ proc toClass *(conv :var Converter; cursor :CXCursor; name :string) :cint=
   return CXChildVisit_Continue.cint
 
 
-proc toMethod *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let isStatic   = clang_CXXMethod_isStatic(cursor) != 0
   let isOperator = name.startsWith("operator")
   let funcType   = clang_getCursorType(cursor)
@@ -209,7 +204,7 @@ proc toMethod *(conv :var Converter; cursor :CXCursor; name :string) :cint=
   return CXChildVisit_Continue.cint
 
 
-proc toConstructor *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
   let retTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName))))
@@ -239,7 +234,7 @@ proc toConstructor *(conv :var Converter; cursor :CXCursor; name :string) :cint=
   return CXChildVisit_Continue.cint
 
 
-proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
   let parentTypeId = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName), mutable: true)))
@@ -255,7 +250,7 @@ proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint=
   return CXChildVisit_Continue.cint
 
 
-proc toClassTemplate *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
   if name in conv.seenStructs: return CXChildVisit_Continue.cint
   conv.seenStructs.incl name
@@ -297,7 +292,7 @@ proc toClassTemplate *(conv :var Converter; cursor :CXCursor; name :string) :cin
   return CXChildVisit_Continue.cint
 
 
-proc toFunctionTemplate *(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let funcName = conv.addRenamed(Proc, name)
   let qualified = cursor.qualifiedName
   let funcType = clang_getCursorType(cursor)

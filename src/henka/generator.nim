@@ -4,26 +4,25 @@ from std/strutils import join, startsWith
 # @deps slate
 import slate/ast as astTF
 import slate
-# #deps henka
-import ./clang
-import ./common
-import ./pragmas
-import ./statements
-import ./cpp
-import ./callbacks
+# @deps henka
+import ./[clang, common, pragmas, statements, cpp, callbacks]
 
 
 #_______________________________________
 # @section Generator: Visitor Entry Point
 #_____________________________
-proc visitor (cursor :CXCursor; parent :CXCursor; clientData :pointer) :cint {.cdecl.}=
+proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cdecl.} =
   var conv = cast[ptr Converter](clientData)
   let kind = clang_getCursorKind(cursor)
-  let accepted =
-    if conv[].includeDir.len > 0 : cursor.isFromDirectory(conv[].includeDir)
-    else                         : cursor.isFromFile(conv[].headerFile)
-  if not accepted: return CXChildVisit_Continue.cint
+  let accepted = case conv[].includeDir.len > 0
+    of true:  cursor.isFromDirectory(conv[].includeDir)
+    of false: cursor.isFromFile(conv[].headerFile)
+
+  if not accepted:
+    return CXChildVisit_Continue.cint
+
   let name = cursor.spelling
+
   let filterKind = case kind
     of CXCursor_TypedefDecl,
        CXCursor_TypeAliasDecl    : Typedef
@@ -36,17 +35,24 @@ proc visitor (cursor :CXCursor; parent :CXCursor; clientData :pointer) :cint {.c
     of CXCursor_ClassDecl,
        CXCursor_ClassTemplate    : StructType
     else                         : Proc
+
   if name.len > 0 and kind != CXCursor_Namespace and not conv[].symbolFilter(filterKind, name):
     return CXChildVisit_Continue.cint
+
   if name.len > 0 and kind != CXCursor_Namespace:
     let override = conv[].symbolOverride(filterKind, name)
     if override.isSome:
       let passthroughLoc = conv[].addSrc(override.get)
       conv[].add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: passthroughLoc)))
+
       return CXChildVisit_Continue.cint
+
   if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_MacroDefinition and kind != CXCursor_FunctionDecl and kind != CXCursor_CXXMethod:
-    if name in conv[].seenSymbols: return CXChildVisit_Continue.cint
+    if name in conv[].seenSymbols:
+      return CXChildVisit_Continue.cint
+
     conv[].seenSymbols.incl name
+
   case kind
   of CXCursor_TypedefDecl      : return conv[].toAlias(cursor, name)
   of CXCursor_StructDecl       : return conv[].toObject(cursor, name)
@@ -65,13 +71,16 @@ proc visitor (cursor :CXCursor; parent :CXCursor; clientData :pointer) :cint {.c
 #_______________________________________
 # @section Generator: Internal Helpers
 #_____________________________
-proc failed_module (inputFile :system.string; clangArgs :seq[system.string]; isCpp :bool; includeDir :system.string) :slate.codegen.Module=
+proc failed_module(inputFile: system.string, clangArgs: seq[system.string], isCpp: bool, includeDir: system.string): slate.codegen.Module =
   var diagnostic = "# Failed to parse: " & inputFile & "\n"
   diagnostic.add "# isCpp: " & $isCpp & "\n"
+
   if includeDir.len > 0:
     diagnostic.add "# includeDir: " & includeDir & "\n"
+
   if clangArgs.len > 0:
     diagnostic.add "# clangArgs: " & clangArgs.join(" ") & "\n"
+
   diagnostic.add "# Ensure the file exists and all include paths are correct.\n"
   result = slate.codegen.Module(path: inputFile, definitions: diagnostic)
 
@@ -79,27 +88,30 @@ proc failed_module (inputFile :system.string; clangArgs :seq[system.string]; isC
 #_______________________________________
 # @section Generator: Entry Point
 #_____________________________
-proc generate *(
-    inputFiles        : seq[system.string];
-    clangArgs         : seq[system.string] = @[];
-    isCpp             : bool               = false;
-    includeDir        : system.string      = "";
-    renamer           : Renamer            = defaultRenamer;
-    constructorName   : NamePattern        = defaultConstructorName;
-    destructorName    : NamePattern        = defaultDestructorName;
-    symbolFilter      : SymbolFilter       = defaultSymbolFilter;
-    symbolOverride    : SymbolOverride     = defaultSymbolOverride;
-    unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer;
-    typeMapper        : TypeMapper         = defaultTypeMapper;
-    pragmaOverride    : PragmaOverride     = defaultPragmaOverride;
-    valueMapper       : ValueMapper        = defaultValueMapper;
-    singleFileParse   : bool               = true;
-    linkMode          : LinkMode           = LinkMode.header;
-    dynlibName        : system.string      = "";
-    dynlibPath        : system.string      = "";
-  ) :Output=
+proc generate*(
+  inputFiles        : seq[system.string],
+  clangArgs         : seq[system.string] = @[],
+  isCpp             : bool               = false,
+  includeDir        : system.string      = "",
+  renamer           : Renamer            = defaultRenamer,
+  constructorName   : NamePattern        = defaultConstructorName,
+  destructorName    : NamePattern        = defaultDestructorName,
+  symbolFilter      : SymbolFilter       = defaultSymbolFilter,
+  symbolOverride    : SymbolOverride     = defaultSymbolOverride,
+  unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer,
+  typeMapper        : TypeMapper         = defaultTypeMapper,
+  pragmaOverride    : PragmaOverride     = defaultPragmaOverride,
+  valueMapper       : ValueMapper        = defaultValueMapper,
+  singleFileParse   : bool               = true,
+  linkMode          : LinkMode           = LinkMode.header,
+  dynlibName        : system.string      = "",
+  dynlibPath        : system.string      = ""
+): Output =
   result = Output(modules: @[])
-  if inputFiles.len == 0: return
+
+  if inputFiles.len == 0:
+    return
+
   let index = clang_createIndex(0, 0)
   defer: clang_disposeIndex(index)
 
@@ -128,14 +140,21 @@ proc generate *(
 
   for fileIdx, inputFile in inputFiles:
     echo "[", fileIdx + 1, "/", inputFiles.len, "] ", inputFile
-    var args :seq[cstring]= @[]
-    if isCpp: args.add "-xc++"
-    for extra in clangArgs: args.add extra.cstring
+    var args: seq[cstring] = @[]
+
+    if isCpp:
+      args.add "-xc++"
+
+    for extra in clangArgs:
+      args.add extra.cstring
+
     let argsPtr = if args.len > 0: addr args[0] else: nil
     let argsLen = args.len.cint
 
     var opts = CXTranslationUnit_DetailedPreprocessingRecord.cuint or CXTranslationUnit_SkipFunctionBodies.cuint
-    if singleFileParse: opts = opts or CXTranslationUnit_SingleFileParse.cuint
+    if singleFileParse:
+      opts = opts or CXTranslationUnit_SingleFileParse.cuint
+
     let unit = clang_parseTranslationUnit(index, inputFile.cstring, argsPtr, argsLen, nil, 0, opts)
     if unit.isNil:
       result.modules.add failed_module(inputFile, clangArgs, isCpp, includeDir)
@@ -147,12 +166,13 @@ proc generate *(
     conv.tu = unit
     conv.module = astTF.Id(moduleIdx)
     conv.lastStatement = none(astTF.Id)
+
     if conv.linkMode == LinkMode.dynlib and moduleIdx == 0 and conv.dynlibName.len > 0:
-      let nameIdent  = conv.addName(conv.dynlibName)
-      let valueLoc   = conv.addSrc("\"" & conv.dynlibPath & "\"")
-      let valueExpr  = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.string, value: valueLoc)))
-      let pragmaId   = conv.addPragma("strdefine")
-      let bindingId  = conv.ast.add_binding(Binding(name: some(nameIdent), value: some(valueExpr), pragmas: some(pragmaId)))
+      let nameIdent = conv.addName(conv.dynlibName)
+      let valueLoc  = conv.addSrc("\"" & conv.dynlibPath & "\"")
+      let valueExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.string, value: valueLoc)))
+      let pragmaId  = conv.addPragma("strdefine")
+      let bindingId = conv.ast.add_binding(Binding(name: some(nameIdent), value: some(valueExpr), pragmas: some(pragmaId)))
       conv.add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
 
     let rootCursor = clang_getTranslationUnitCursor(unit)
@@ -161,6 +181,7 @@ proc generate *(
 
   # Render each module
   var nimOut = Output(modules: @[])
+
   for idx in 0..<conv.ast.data.modules.len:
     nimOut.modules.add output.Module(path: conv.ast.data.modules[idx].path)
 
@@ -178,31 +199,34 @@ proc generate *(
 #_______________________________________
 # @section Generator: Single File Overload
 #_____________________________
-proc generate *(
-    inputFile         : system.string;
-    clangArgs         : seq[system.string] = @[];
-    isCpp             : bool               = false;
-    includeDir        : system.string      = "";
-    renamer           : Renamer            = defaultRenamer;
-    constructorName   : NamePattern        = defaultConstructorName;
-    destructorName    : NamePattern        = defaultDestructorName;
-    symbolFilter      : SymbolFilter       = defaultSymbolFilter;
-    symbolOverride    : SymbolOverride     = defaultSymbolOverride;
-    unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer;
-    typeMapper        : TypeMapper         = defaultTypeMapper;
-    pragmaOverride    : PragmaOverride     = defaultPragmaOverride;
-    valueMapper       : ValueMapper        = defaultValueMapper;
-    linkMode          : LinkMode           = LinkMode.header;
-    dynlibName        : system.string      = "";
-    dynlibPath        : system.string      = "";
-  ) :system.string=
+proc generate*(
+  inputFile         : system.string,
+  clangArgs         : seq[system.string] = @[],
+  isCpp             : bool               = false,
+  includeDir        : system.string      = "",
+  renamer           : Renamer            = defaultRenamer,
+  constructorName   : NamePattern        = defaultConstructorName,
+  destructorName    : NamePattern        = defaultDestructorName,
+  symbolFilter      : SymbolFilter       = defaultSymbolFilter,
+  symbolOverride    : SymbolOverride     = defaultSymbolOverride,
+  unnamedFieldNamer : UnnamedFieldNamer  = defaultUnnamedFieldNamer,
+  typeMapper        : TypeMapper         = defaultTypeMapper,
+  pragmaOverride    : PragmaOverride     = defaultPragmaOverride,
+  valueMapper       : ValueMapper        = defaultValueMapper,
+  linkMode          : LinkMode           = LinkMode.header,
+  dynlibName        : system.string      = "",
+  dynlibPath        : system.string      = ""
+): system.string =
   let generated = generate(@[inputFile], clangArgs, isCpp, includeDir,
     renamer, constructorName, destructorName, symbolFilter, symbolOverride,
     unnamedFieldNamer, typeMapper, pragmaOverride, valueMapper,
     singleFileParse = false,
     linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath)
-  if generated.modules.len > 0: result = generated.modules[0].definitions
-  else: result = ""
+
+  if generated.modules.len > 0:
+    result = generated.modules[0].definitions
+  else:
+    result = ""
 
 
 #_______________________________________
@@ -216,13 +240,18 @@ proc run* =
   var inputFile = ""
   var forceCpp = false
   var includeDir = ""
-  var extraArgs :seq[system.string]= @[]
+  var extraArgs: seq[system.string] = @[]
+
   for idx in 1..paramCount():
     let arg = paramStr(idx)
-    if arg == "--cpp": forceCpp = true
-    elif arg.startsWith("--include-dir="): includeDir = arg[len("--include-dir=")..^1]
-    elif arg.startsWith("-I") or arg.startsWith("-D") or arg.startsWith("-std="): extraArgs.add arg
-    else: inputFile = arg
+    if arg == "--cpp":
+      forceCpp = true
+    elif arg.startsWith("--include-dir="):
+      includeDir = arg[len("--include-dir=")..^1]
+    elif arg.startsWith("-I") or arg.startsWith("-D") or arg.startsWith("-std="):
+      extraArgs.add arg
+    else:
+      inputFile = arg
 
   if inputFile.len == 0:
     echo "Usage: poc_ext [--cpp] [--include-dir=path] [-Ipath] [-Ddefine] [-std=c++17] <header>"
@@ -235,6 +264,5 @@ proc run* =
     let outFile = inputFile.changeFileExt(".nim")
     outFile.writeFile(output)
     echo "\nWrote: ", outFile
-#___________________
-when isMainModule: run()
 
+when isMainModule: run()

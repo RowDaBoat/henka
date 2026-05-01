@@ -3,21 +3,33 @@ from std/strutils import startsWith
 # @deps henka
 import ./common
 
-proc defaultConstructorName   *(className :system.string) :system.string= className & "_create"
-proc defaultDestructorName    *(className :system.string) :system.string= "destroy"
-proc defaultSymbolFilter      *(kind :LabelKind; name :system.string) :bool= true
-proc defaultSymbolOverride    *(kind :LabelKind; name :system.string) :Option[system.string]= none(system.string)
-proc defaultUnnamedFieldNamer *(parentName :system.string; index :int) :system.string= "unnamed" & $index
+proc defaultConstructorName*(className: system.string): system.string =
+  className & "_create"
 
-proc defaultRenamer *(kind :LabelKind; name :system.string) :system.string=
+proc defaultDestructorName*(className: system.string): system.string =
+  "destroy"
+
+proc defaultSymbolFilter*(kind: LabelKind, name: system.string): bool =
+  true
+
+proc defaultSymbolOverride*(kind: LabelKind, name: system.string): Option[system.string] =
+  none(system.string)
+
+proc defaultUnnamedFieldNamer*(parentName: system.string, index: int): system.string =
+  "unnamed" & $index
+
+proc defaultRenamer*(kind :LabelKind, name: system.string): system.string=
   var cleaned = name
-  if cleaned.startsWith("_"): cleaned = "priv" & cleaned
+  if cleaned.startsWith("_"):
+    cleaned = "priv" & cleaned
+
   result = case kind
     of StructType : "struct_" & cleaned
     of UnionType  : "union_" & cleaned
     of EnumType   : "enum_" & cleaned
     of EnumClass  : cleaned
     else          : cleaned
+
 
 const standardTypeMappings *:seq[(system.string, system.string)]= @[
   ("size_t",    "csize_t"),
@@ -35,10 +47,14 @@ const standardTypeMappings *:seq[(system.string, system.string)]= @[
   ("uint64_t",  "uint64"),
 ]
 
-proc defaultTypeMapper*(name :system.string) :Option[system.string]=
+
+proc defaultTypeMapper*(name: system.string): Option[system.string]=
   for mapping in standardTypeMappings:
-    if name == mapping[0]: return some(mapping[1])
+    if name == mapping[0]:
+      return some(mapping[1])
+
   result = none(system.string)
+
 
 const standardValueMappings *:seq[(system.string, system.string)]= @[
   ("UINT8_MAX",  "high(uint8)"),
@@ -58,11 +74,19 @@ const standardValueMappings *:seq[(system.string, system.string)]= @[
   ("INFINITY",   "Inf"),
 ]
 
-proc defaultValueMapper *(value :system.string) :system.string=
+proc defaultValueMapper*(value: system.string): system.string=
   result = value
+
   for mapping in standardValueMappings:
-    if result == "( " & mapping[0] & " )": return mapping[1]
-    if result == mapping[0]: return mapping[1]
+    if result == "( " & mapping[0] & " )":
+      return mapping[1]
 
-proc defaultPragmaOverride*(kind :LabelKind; name :system.string; defaults :seq[(system.string, system.string)]) :seq[(system.string, system.string)]= defaults
+    if result == mapping[0]:
+      return mapping[1]
 
+proc defaultPragmaOverride*(
+  kind: LabelKind, 
+  name: system.string, 
+  defaults: seq[(system.string, system.string)]
+): seq[(system.string, system.string)] =
+  defaults

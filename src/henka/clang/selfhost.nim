@@ -9,9 +9,9 @@ from std/strutils import endsWith
 # @deps henka
 import ../../henka
 
-const libclangInclude   {.strdefine.}= "/"/"usr"/"lib"/"llvm-18"/"include"
-const libclangHeaderDir {.strdefine.}= libclangInclude/"clang-c"
-const outputFile        = currentSourcePath().parentDir()/"api.nim"
+const libclangInclude   {.strdefine.} = "/"/"usr"/"lib"/"llvm-18"/"include"
+const libclangHeaderDir {.strdefine.} = libclangInclude/"clang-c"
+const outputFile                      = currentSourcePath().parentDir()/"api.nim"
 
 proc filter (kind :LabelKind; name :string) :bool=
   result = name notin [
@@ -23,8 +23,8 @@ proc filter (kind :LabelKind; name :string) :bool=
 
 proc typemap (name :string) :Option[string]=
   result = case name
-    of "time_t" : some("clong")
-    else        : defaultTypeMapper(name)
+    of "time_t": some("clong")
+    else:        defaultTypeMapper(name)
 
 when isMainModule:
   let hdr = libclangHeaderDir
@@ -53,13 +53,17 @@ when isMainModule:
     singleFileParse = false,
     linkMode        = LinkMode.dynlib,
     dynlibName      = "libclang",
-    dynlibPath      = "libclang.so")
+    dynlibPath      = "libclang.so"
+  )
 
   var combined = ""
   for module in output.modules:
     if module.definitions.len > 0:
       combined.add module.definitions
-      if not combined.endsWith("\n"): combined.add "\n"
+
+      if not combined.endsWith("\n"):
+        combined.add "\n"
+
   outputFile.writeFile(combined)
   echo "Wrote: ", outputFile
 

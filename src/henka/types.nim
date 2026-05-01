@@ -6,7 +6,7 @@ import slate/ast as astTF
 import ./[common, clang, pragmas]
 
 
-proc convert_type *(conv: var Converter; typ: CXType): astTF.Id
+proc convert_type*(conv: var Converter, typ: CXType): astTF.Id
 
 const clang_Primitives = {
   CXType_Bool, CXType_Void,
@@ -17,15 +17,15 @@ const clang_Primitives = {
 }
 
 
-proc add_primitive *(conv: var Converter; name: string): astTF.Id=
+proc add_primitive*(conv: var Converter, name: string): astTF.Id =
   result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name))))
 
 
-proc toUnsupported *(conv: var Converter; typ: CXType): astTF.Id=
+proc toUnsupported*(conv: var Converter, typ: CXType): astTF.Id =
   result = conv.add_primitive("UNSUPPORTED_" & $typ.kind)
 
 
-proc toPrimitive *(conv: var Converter; typ: CXType): astTF.Id=
+proc toPrimitive*(conv: var Converter, typ: CXType): astTF.Id =
   result = conv.add_primitive(case typ.kind
     of CXType_Bool      : "bool"
     of CXType_Void      : "void"
@@ -50,7 +50,7 @@ proc toPrimitive *(conv: var Converter; typ: CXType): astTF.Id=
 
 
 # FIX: Give this proc a proper name
-proc toPrimitive2 *(conv: var Converter, typ: CXType): astTF.Id=
+proc toPrimitive2*(conv: var Converter, typ: CXType): astTF.Id =
   var named = typ.typeSpelling
   if named.startsWith("const "):
     named = named[6..^1]
@@ -62,7 +62,7 @@ proc toPrimitive2 *(conv: var Converter, typ: CXType): astTF.Id=
   result = conv.add_primitive(named)
 
 
-proc toPointer *(conv: var Converter, typ: CXType): astTF.Id=
+proc toPointer*(conv: var Converter, typ: CXType): astTF.Id =
   let pointee = clang_getPointeeType(typ)
   if pointee.kind == CXType_FunctionProto:
     return conv.convert_type(pointee)
@@ -77,7 +77,7 @@ proc toPointer *(conv: var Converter, typ: CXType): astTF.Id=
   result = conv.ast.add_type(Type(kind: astTF.tPtr, `ptr`: TypePtr(target: targetId)))
 
 
-proc toObject *(conv: var Converter, typ: CXType): astTF.Id=
+proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   var named = typ.typeSpelling
   if named.startsWith("const "):
     named = named[6..^1]
@@ -96,7 +96,7 @@ proc toObject *(conv: var Converter, typ: CXType): astTF.Id=
   result = conv.add_primitive(named)
 
 
-proc toProcedure *(conv: var Converter, typ: CXType): astTF.Id=
+proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
   let retType = clang_getResultType(typ)
   let retOpt  = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))
   let argc    = clang_getNumArgTypes(typ)
@@ -127,7 +127,7 @@ proc toProcedure *(conv: var Converter, typ: CXType): astTF.Id=
   result = conv.ast.add_type(Type(kind: astTF.tProcedure, procedure: TypeProcedure(id: procId)))
 
 
-proc toArray *(conv: var Converter, typ: CXType): astTF.Id=
+proc toArray*(conv: var Converter, typ: CXType): astTF.Id =
   let elemType  = clang_getArrayElementType(typ)
   let elemId    = conv.convertType(elemType)
   let count     = clang_getNumElements(typ)
@@ -136,12 +136,12 @@ proc toArray *(conv: var Converter, typ: CXType): astTF.Id=
   result = conv.ast.add_type(Type(kind: astTF.tArray, array: TypeArray(element: elemId, length: some(countExpr))))
 
 
-proc toReference *(conv: var Converter, typ: CXType): astTF.Id=
+proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
   let pointee = clang_getPointeeType(typ)
   result = conv.convert_type(pointee)
 
 
-proc convert_type *(conv: var Converter, typ: CXType): astTF.Id=
+proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
   result = case typ.kind
     of clang_Primitives       : conv.toPrimitive(typ)
     of CXType_Typedef         : conv.toPrimitive2(typ)

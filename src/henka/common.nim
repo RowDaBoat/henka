@@ -1,20 +1,20 @@
 # @deps slate
 import slate/ast as astTF
 # @deps henka
-import ./base ; export base
+import ./base
+export base
 
 
-proc addSrc *(conv :var Converter; text :string) :astTF.Location=
+proc addSrc*(conv: var Converter, text: string): astTF.Location =
   let start = conv.ast.data.modules[conv.module].source.len.uint64
   conv.ast.data.modules[conv.module].source.add text
   result = astTF.Location(start: start, `end`: start + text.len.uint64)
 
 
-proc addName *(conv :var Converter; text :string) :astTF.Identifier=
+proc addName*(conv: var Converter, text: string): astTF.Identifier =
   result = astTF.Identifier(location: conv.addSrc(text))
 
 
-proc addRenamed *(conv :var Converter; kind :LabelKind; cName :system.string) :astTF.Identifier=
+proc addRenamed*(conv: var Converter, kind: LabelKind, cName: system.string): astTF.Identifier =
   let nimName = conv.renamer(kind, cName)
   result = conv.addName(nimName)
-

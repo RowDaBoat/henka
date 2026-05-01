@@ -6,7 +6,7 @@ import slate/ast as astTF
 import ./[clang, common, comments, pragmas, types]
 
 
-proc add_statement_chained *(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.}=
+proc add_statement_chained*(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.} =
   let statement_id = conv.ast.add_statement(statement)
 
   if conv.lastStatement.isSome:
@@ -35,7 +35,7 @@ proc add_statement_chained *(conv: var Converter, statement: astTF.Statement): a
   result = statement_id
 
 
-proc toAlias *(conv: var Converter, cursor: CXCursor, name: string): cint=
+proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling
@@ -80,7 +80,7 @@ proc toAlias *(conv: var Converter, cursor: CXCursor, name: string): cint=
   result = CXChildVisit_Continue.cint
 
 
-proc toObject *(conv: var Converter, cursor: CXCursor, name: string): cint=
+proc toObject*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if name.len == 0 or ' ' in name:
     return CXChildVisit_Continue.cint
 
@@ -140,7 +140,7 @@ proc toObject *(conv: var Converter, cursor: CXCursor, name: string): cint=
   return CXChildVisit_Continue.cint
 
 
-proc toScopedEnum *(conv: var Converter, cursor: CXCursor, name: string): cint=
+proc toScopedEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let commentOpt = conv.add_comment(cursor)
 
   if commentOpt.isSome:
@@ -186,7 +186,7 @@ proc toScopedEnum *(conv: var Converter, cursor: CXCursor, name: string): cint=
   return CXChildVisit_Continue.cint
 
 
-proc toEnum *(conv: var Converter, cursor: CXCursor, name: string): cint =
+proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if name.len == 0:
     return CXChildVisit_Continue.cint
 
@@ -236,7 +236,7 @@ proc toEnum *(conv: var Converter, cursor: CXCursor, name: string): cint =
   return CXChildVisit_Continue.cint
 
 
-proc toProcedure *(conv: var Converter, cursor: CXCursor, name: string): cint =
+proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let funcName = conv.addRenamed(Proc, name)
   let funcType = clang_getCursorType(cursor)
   let retType  = clang_getResultType(funcType)
@@ -282,7 +282,7 @@ proc toProcedure *(conv: var Converter, cursor: CXCursor, name: string): cint =
   return CXChildVisit_Continue.cint
 
 
-proc toVariable *(conv: var Converter, cursor: CXCursor, name: string): cint =
+proc toVariable*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let varName    = conv.addRenamed(Variable, name)
   let cursorType = clang_getCursorType(cursor)
   var typeStr    = cursorType.typeSpelling
@@ -327,14 +327,14 @@ proc toVariable *(conv: var Converter, cursor: CXCursor, name: string): cint =
 
 const compilerDirectives * = ["_Pragma", "__attribute__", "__declspec", "__asm__", "__asm", "__volatile__"]
 
-proc isCompilerDirective(value :system.string) :bool=
+proc isCompilerDirective(value :system.string) :bool =
   for directive in compilerDirectives:
     if value.find(directive) >= 0: return true
 
   return false
 
 
-proc toMacro *(conv: var Converter, cursor: CXCursor, name: string): cint=
+proc toMacro*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if name.startsWith("_") or name.startsWith("__"):
     return CXChildVisit_Continue.cint
 
