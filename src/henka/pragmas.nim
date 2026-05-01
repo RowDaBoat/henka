@@ -120,7 +120,7 @@ proc importPragmaKey*(conv: Converter): system.string =
   else:          "importc"
 
 
-proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; isTagged: bool = true): astTF.Id =
+proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; isTagged: bool = true; isUnion: bool = false): astTF.Id =
   var pairs: seq[(system.string, system.string)] = @[]
 
   if isForward:
@@ -129,9 +129,10 @@ proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; 
     pairs.add ("bycopy", "")
 
   if conv.linkMode != LinkMode.dynlib:
+    let tag = if isUnion: "union " else: "struct "
     let importValue =
       if conv.isCpp: "\"" & cName & "\""
-      elif isTagged: "\"struct " & cName & "\""
+      elif isTagged: "\"" & tag & cName & "\""
       else:          "\"" & cName & "\""
 
     pairs.add (conv.importPragmaKey, importValue)

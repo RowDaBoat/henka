@@ -80,7 +80,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   result = CXChildVisit_Continue.cint
 
 
-proc toObject*(conv: var Converter, cursor: CXCursor, name: string): cint =
+proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: bool = false): cint =
   if name.len == 0 or ' ' in name:
     return CXChildVisit_Continue.cint
 
@@ -94,9 +94,11 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if commentOpt.isSome:
     conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
 
-  let isTagged = clang_getCursorType(cursor).typeSpelling.startsWith("struct ")
+  let typeSpelling = clang_getCursorType(cursor).typeSpelling
+  let isTagged = typeSpelling.startsWith("struct ") or typeSpelling.startsWith("union ")
+  let labelKind = if isUnion: UnionType else: StructType
   let structName = case isTagged
-    of true:  conv.addRenamed(StructType, name)
+    of true:  conv.addRenamed(labelKind, name)
     of false: conv.addRenamed(Typedef, name)
 
   # Collect fields
@@ -126,13 +128,16 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
     firstField = some(ctx.ids[0])
 
-  let pragmaId = conv.structPragmas(name, isForward, isTagged)
-  let typeId   = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(structName), fields: firstField, pragmas: some(pragmaId))))
+  let pragmaId = conv.structPragmas(name, isForward, isTagged, isUnion)
+  let keywordIdent = case isUnion
+    of on:  some(conv.addName("union"))
+    of off: none(astTF.Identifier)
+  let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(structName), fields: firstField, pragmas: some(pragmaId), keyword: keywordIdent)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
 
   if isTagged:
     let cleanName        = conv.addRenamed(Typedef, name)
-    let renamedStructRef = conv.addRenamed(StructType, name)
+    let renamedStructRef = conv.addRenamed(labelKind, name)
     let refTypeId        = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedStructRef)))
     let aliasTypeId      = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
     conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasTypeId)))
