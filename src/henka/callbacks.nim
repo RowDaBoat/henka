@@ -85,8 +85,8 @@ proc defaultValueMapper*(value: system.string): system.string=
       return mapping[1]
 
 proc defaultPragmaOverride*(
-  kind: LabelKind, 
-  name: system.string, 
+  kind: LabelKind,
+  name: system.string,
   defaults: seq[(system.string, system.string)]
 ): seq[(system.string, system.string)] =
   defaults
