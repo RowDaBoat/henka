@@ -1,6 +1,7 @@
-import ./henka/base      ; export base
-import ./henka/callbacks ; export callbacks
-import ./henka/generator ; export generator
+import std/os
+import cliquet
+import ./henka/[base, callbacks, generator]
+export base, callbacks, generator
 
 when isMainModule:
   type CliConfig = object
