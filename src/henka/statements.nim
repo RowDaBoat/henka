@@ -453,9 +453,9 @@ proc toMacro*(conv: var Converter, cursor: CXCursor, name: string): cint =
     let value = valueParts.join(" ")
     if value.len > 0:
       if value.isCompilerDirective:
-        let commentText = "#define " & name & " " & value
-        let commentId = conv.add_comment(commentText, false)
-        conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentId)))
+        let passthroughText = "# #define " & name & " " & value
+        let passthroughLoc = conv.addSrc(passthroughText)
+        conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: passthroughLoc)))
       else:
         let mapped      = if conv.valueMapper != nil: conv.valueMapper(value) else: value
         let nameIdent   = conv.addRenamed(Constant, name)
