@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith
+from std/strutils import startsWith, replace, contains
 # @deps slate
 import slate/ast as astTF
 # @deps henka
@@ -17,8 +17,12 @@ const clang_Primitives = {
 }
 
 
+proc templateToGeneric(name: string): string =
+  if '<' in name: name.replace("<", "[").replace(">", "]")
+  else: name
+
 proc add_primitive*(conv: var Converter, name: string): astTF.Id =
-  result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name))))
+  result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name.templateToGeneric))))
 
 
 proc toUnsupported*(conv: var Converter, typ: CXType): astTF.Id =

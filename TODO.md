@@ -22,11 +22,12 @@
 - [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
 - [x] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
 - [x] The `passthrough` pragma for `__attribute__`/`_Pragma` macros — now emits `sPassthrough` statements instead of `sComment`, distinguishable from doc comments by downstream tooling
-- [ ] Godot-cpp: 3 `UNSUPPORTED_0` from `CXType_Invalid` on template edge cases (`MIN`, `MAX`, `CLAMP` with `decltype(auto)` return)
-- [ ] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) come through as raw text instead of resolved Nim types
+- [x] Godot-cpp: `UNSUPPORTED_118` from `CXType_Auto` on template edge cases (`MIN`, `MAX`, `CLAMP`) — mapped `CXType_Auto` to `auto` primitive
+- [x] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) — hack: `add_primitive` replaces `<>`→`[]` in type names. Works but should use proper generic type AST nodes
 
 
 ## Other v2 tasks
+- [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] so/dll/dylib
 - [ ] write DSL for AST
