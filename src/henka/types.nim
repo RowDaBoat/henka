@@ -160,4 +160,5 @@ proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
       let elemId = conv.convert_type(elemType)
       let arrayName = conv.addName("UncheckedArray")
       conv.ast.add_type(Type(kind: astTF.tArray, array: TypeArray(name: some(arrayName), element: elemId)))
+    of CXType_Auto            : conv.add_primitive("auto")
     else                      : conv.toUnsupported(typ)

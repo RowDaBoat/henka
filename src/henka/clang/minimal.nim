@@ -158,5 +158,6 @@ const CXType_FunctionProto*           : cint = 111
 const CXType_ConstantArray*           : cint = 112
 const CXType_MemberPointer*           : cint = 117
 const CXType_IncompleteArray*         : cint = 114
+const CXType_Auto*                    : cint = 118
 const CXType_Elaborated*              : cint = 119
 
