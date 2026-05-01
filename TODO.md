@@ -5,7 +5,7 @@
 - [x] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations (fixed in slate codegen)
 - [x] Union pragma — `{.union.}` for C union types (slate codegen renders TypeObject.keyword as pragma, henka converter sets keyword + dispatches CXCursor_UnionDecl)
 - [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
-- [ ] `sanitizer` renamer wrapper — composable wrapper that dedup-underscores and escapes keywords before passing to user renamer. Current `defaultRenamer` bakes this in and isn't composable
+- [x] `sanitizer` callback — separate `Sanitizer` callback runs after renamer in `addRenamed`. Default dedup-underscores and adds `priv` prefix for `_` names. User can override or compose.
 - [ ] Relative header paths in pragmas — butcher computed `relativePath(rootDir)` for header pragmas instead of just `lastPathPart`
 - [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma

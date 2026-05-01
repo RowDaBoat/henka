@@ -18,17 +18,28 @@ proc defaultSymbolOverride*(kind: LabelKind, name: system.string): Option[system
 proc defaultUnnamedFieldNamer*(parentName: system.string, index: int): system.string =
   "unnamed" & $index
 
-proc defaultRenamer*(kind :LabelKind, name: system.string): system.string=
-  var cleaned = name
-  if cleaned.startsWith("_"):
-    cleaned = "priv" & cleaned
+proc dedupUnderscores *(label :system.string) :system.string=
+  var wasUnderscore = false
+  for character in label:
+    let isUnderscore = character == '_'
+    if not (isUnderscore and wasUnderscore):
+      result.add character
+    wasUnderscore = isUnderscore
 
+proc defaultSanitizer *(name :system.string) :system.string=
+  result =
+    if   name.startsWith("__") : "internal" & name
+    elif name.startsWith("_")  : "priv" & name
+    else                       : name
+  result = result.dedupUnderscores
+
+proc defaultRenamer*(kind :LabelKind, name: system.string): system.string=
   result = case kind
-    of StructType : "struct_" & cleaned
-    of UnionType  : "union_" & cleaned
-    of EnumType   : "enum_" & cleaned
-    of EnumClass  : cleaned
-    else          : cleaned
+    of StructType : "struct_" & name
+    of UnionType  : "union_" & name
+    of EnumType   : "enum_" & name
+    of EnumClass  : name
+    else          : name
 
 
 const standardTypeMappings *:seq[(system.string, system.string)]= @[

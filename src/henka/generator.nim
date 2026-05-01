@@ -96,6 +96,7 @@ proc generate*(
   isCpp             : bool               = false,
   includeDir        : system.string      = "",
   renamer           : Renamer            = defaultRenamer,
+  sanitizer         : Sanitizer          = defaultSanitizer,
   constructorName   : NamePattern        = defaultConstructorName,
   destructorName    : NamePattern        = defaultDestructorName,
   symbolFilter      : SymbolFilter       = defaultSymbolFilter,
@@ -126,6 +127,7 @@ proc generate*(
     seenEnums         : initHashSet[system.string](),
     seenSymbols       : initHashSet[system.string](),
     renamer           : renamer,
+    sanitizer         : sanitizer,
     isCpp             : isCpp,
     includeDir        : includeDir,
     constructorName   : constructorName,
@@ -207,6 +209,7 @@ proc generate*(
   isCpp             : bool               = false,
   includeDir        : system.string      = "",
   renamer           : Renamer            = defaultRenamer,
+  sanitizer         : Sanitizer          = defaultSanitizer,
   constructorName   : NamePattern        = defaultConstructorName,
   destructorName    : NamePattern        = defaultDestructorName,
   symbolFilter      : SymbolFilter       = defaultSymbolFilter,
@@ -220,7 +223,7 @@ proc generate*(
   dynlibPath        : system.string      = ""
 ): system.string =
   let generated = generate(@[inputFile], clangArgs, isCpp, includeDir,
-    renamer, constructorName, destructorName, symbolFilter, symbolOverride,
+    renamer, sanitizer, constructorName, destructorName, symbolFilter, symbolOverride,
     unnamedFieldNamer, typeMapper, pragmaOverride, valueMapper,
     singleFileParse = false,
     linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath)

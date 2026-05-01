@@ -27,6 +27,7 @@ type UnnamedFieldNamer* = proc(parentName: system.string, index: int): system.st
 type TypeMapper*        = proc(name: system.string): Option[system.string]
 type PragmaOverride*    = proc(kind: LabelKind, name: system.string, defaults: seq[(system.string, system.string)]): seq[(system.string, system.string)]
 type ValueMapper*       = proc(value: system.string): system.string
+type Sanitizer*         = proc(name: system.string): system.string
 
 type Converter* = object
   ast*               : astTF.Ast
@@ -49,6 +50,7 @@ type Converter* = object
   symbolOverride*    : SymbolOverride
   unnamedFieldNamer* : UnnamedFieldNamer
   typeMapper*        : TypeMapper
+  sanitizer*         : Sanitizer
   pragmaOverride*    : PragmaOverride
   valueMapper*       : ValueMapper
 

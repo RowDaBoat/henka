@@ -16,5 +16,6 @@ proc addName*(conv: var Converter, text: string): astTF.Identifier =
 
 
 proc addRenamed*(conv: var Converter, kind: LabelKind, cName: system.string): astTF.Identifier =
-  let nimName = conv.renamer(kind, cName)
-  result = conv.addName(nimName)
+  let renamed = conv.renamer(kind, cName)
+  let sanitized = conv.sanitizer(renamed)
+  result = conv.addName(sanitized)
