@@ -63,7 +63,6 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
 proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
   if name in conv.seenStructs: return CXChildVisit_Continue.cint
-  conv.seenStructs.incl name
   let commentOpt = conv.add_comment(cursor)
   if commentOpt.isSome:
     conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
@@ -135,6 +134,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     finalPragma = inheritableId
   let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, pragmas: some(finalPragma), link: linkRange)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.seenStructs[name] = typeId
   # Now emit methods, constructors, destructors
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
     let conv = cast[ptr Converter](data)
@@ -253,7 +253,6 @@ proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
 proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
   if name in conv.seenStructs: return CXChildVisit_Continue.cint
-  conv.seenStructs.incl name
   let className = conv.addName(name)
   # Collect template type parameters
   var templateCtx = ChildCtx(conv: addr conv)
@@ -289,6 +288,7 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
   let pragmaId = conv.classPragmas(cursor, false)
   let typeId   = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, generics: firstGeneric, pragmas: some(pragmaId))))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.seenStructs[name] = typeId
   return CXChildVisit_Continue.cint
 
 

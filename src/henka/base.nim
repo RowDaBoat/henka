@@ -1,13 +1,15 @@
 # @deps std
 from std/options import Option, none, some, isSome
 from std/sets import HashSet, initHashSet, incl, contains
+from std/tables import Table, initTable, `[]=`, `[]`, hasKey, contains
 # @deps slate
 import slate/ast as astTF
 # @deps henka
 import ./clang
 
 export Option, none, some, isSome
-export HashSet, initHashSet, incl, contains
+export HashSet, initHashSet, incl, sets.contains
+export Table, initTable, `[]=`, `[]`, hasKey, tables.contains
 
 type LinkMode* {.pure.}= enum
   header
@@ -35,7 +37,7 @@ type Converter* = object
   rootDir*           : system.string
   module*            : astTF.Id
   tu*                : CXTranslationUnit
-  seenStructs*       : HashSet[system.string]
+  seenStructs*       : Table[system.string, astTF.Id]
   seenEnums*         : HashSet[system.string]
   seenSymbols*       : HashSet[system.string]
   renamer*           : Renamer

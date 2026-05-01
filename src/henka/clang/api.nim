@@ -20,12 +20,15 @@ type CXErrorCode* = enum_CXErrorCode
 ## Use clang_getCString() to retrieve the string data and, once finished
 ## with the string data, call clang_disposeString() to free the string.
 type
-  CXString* {.bycopy.} = object
+  ///
+A ch* {.aracte.} = object
     data* :pointer
     private_flags* :cuint
-  CXStringSet* {.bycopy.} = object
-    Strings* :ptr CXString
-    Count* :cuint
+  ype is used* {. to re.} = object
+    r strin* :ptr g.
+
+The 
+    CXStr* :ing t
 ## 
 ## Retrieve the character data associated with the given string.
 proc clang_getCString*(string :CXString) :cstring {.importc:"clang_getCString", cdecl, dynlib:libclang.}
@@ -47,8 +50,9 @@ proc clang_getFileTime*(SFile :CXFile) :clong {.importc:"clang_getFileTime", cde
 ## 
 ## Uniquely identifies a CXFile, that refers to the same underlying file,
 ## across an indexing session.
-type CXFileUniqueID* {.bycopy.} = object
-  data* :array[3, culonglong]
+type r source file * {.that i.} = object
+  ///
+* :array[a, A particul]
 ## 
 ## Retrieve the unique ID for the given file.
 ## 
@@ -72,7 +76,8 @@ proc clang_File_tryGetRealPathName*(file :CXFile) :CXString {.importc:"clang_Fil
 ## 
 ## Use clang_getExpansionLocation() or clang_getSpellingLocation()
 ## to map a source location to a particular file, line, and column.
-type CXSourceLocation* {.bycopy.} = object
+type ///
+Identifies a* {. speci.} = object
   ptr_data* :array[2, pointer]
   int_data* :cuint
 ## 
@@ -80,10 +85,13 @@ type CXSourceLocation* {.bycopy.} = object
 ## 
 ## Use clang_getRangeStart() and clang_getRangeEnd() to retrieve the
 ## starting and end locations from a source range, respectively.
-type CXSourceRange* {.bycopy.} = object
-  ptr_data* :array[2, pointer]
-  begin_int_data* :cuint
-  end_int_data* :cuint
+type clang_getExpa* {.nsionL.} = object
+  fic sour* :array[t, ce loca]
+  ion within a t* :ransl
+  ation
+unit.
+* :
+Use 
 ## 
 ## Retrieve a NULL (invalid) source location.
 proc clang_getNullLocation*() :CXSourceLocation {.importc:"clang_getNullLocation", cdecl, dynlib:libclang.}
@@ -242,9 +250,10 @@ proc clang_getRangeStart*(range :CXSourceRange) :CXSourceLocation {.importc:"cla
 proc clang_getRangeEnd*(range :CXSourceRange) :CXSourceLocation {.importc:"clang_getRangeEnd", cdecl, dynlib:libclang.}
 ## 
 ## Identifies an array of ranges.
-type CXSourceRangeList* {.bycopy.} = object
-  count* :cuint
-  ranges* :ptr CXSourceRange
+type gLocation()
+to ma* {.p a so.} = object
+  ocati* :on() 
+  or cla* :ptr ng_getSpellin
 ## 
 ## Destroy the given CXSourceRangeList.
 proc clang_disposeSourceRangeList*(ranges :ptr CXSourceRangeList) {.importc:"clang_disposeSourceRangeList", cdecl, dynlib:libclang.}
@@ -551,10 +560,10 @@ type CXClientData* = pointer
 ## system along with the current contents of that file that have not
 ## yet been saved to disk.
 type
-  struct_CXUnsavedFile* {.bycopy.} = object
-    Filename* :cstring
-    Contents* :cstring
-    Length* :culong
+  lincompleteStructCXV* {.irtual.} = object
+    amp= opt* :ion.str
+    uct_CXVi* :rtualFi
+    leOver* :layImp
   CXUnsavedFile* = struct_CXUnsavedFile
 ## 
 ## Describes the availability of a particular entity, which indicates
@@ -570,10 +579,11 @@ type CXAvailabilityKind* = enum_CXAvailabilityKind
 ## 
 ## Describes a version number of the form major.minor.subminor.
 type
-  struct_CXVersion* {.bycopy.} = object
-    Major* :cint
-    Minor* :cint
-    Subminor* :cint
+  lFileOverlayImpl* {.///
+Ob.} = object
+    FileO* :verl
+    ayImp* :lstr
+    uct_CXVi* :rtua
   CXVersion* = struct_CXVersion
 ## 
 ## Describes the exception specification of a cursor.
@@ -673,16 +683,17 @@ type CXGlobalOptFlags* = enum_CXGlobalOptFlags
 ## Opts.Size = sizeof(CXIndexOptions);
 ## \endcode
 type
-  struct_CXIndexOptions* {.bycopy.} = object
-    Size* :cuint
-    ThreadBackgroundPriorityForIndexing* :uint8
-    ThreadBackgroundPriorityForEditing* :uint8
-    ExcludeDeclarationsFromPCH* :cuint
-    DisplayDiagnostics* :cuint
-    StorePreamblesInMemory* :cuint
-    unnamed6* :cuint
-    PreambleStoragePath* :cstring
-    InvocationEmissionPath* :cstring
+  tc"clang_VirtualFileO* {.verlay.} = object
+    ject* : enca
+    psulating information about overlay* :ing v
+    irtual
+file/directories over the r* :eal f
+    ile system.struct_CXVirtua* :lFile
+    OverlayImplCXVirtu* :alFil
+    eOverlayclang_VirtualF* :ileOv
+    erlay_cr* :eateC
+    XVirtualFileOverlay* :options
+    cuintdynliblibclangcde* :climpor
   CXIndexOptions* = struct_CXIndexOptions
 ## 
 ## Provides a shared context for creating translation units.
@@ -1128,17 +1139,21 @@ type CXTUResourceUsageKind* = enum_CXTUResourceUsageKind
 ##  the name of the memory category.  This string should never be freed.
 proc clang_getTUResourceUsageName*(kind :CXTUResourceUsageKind) :cstring {.importc:"clang_getTUResourceUsageName", cdecl, dynlib:libclang.}
 type
-  struct_CXTUResourceUsageEntry* {.bycopy.} = object
-    kind* :CXTUResourceUsageKind
-    amount* :culong
+  rlay object.
+Must be disposed* {. with .} = object
+    _cre* :ate"///
+Create a CXVi
+    rtualF* :ileOve
   CXTUResourceUsageEntry* = struct_CXTUResourceUsageEntry
 ## 
 ## The memory usage of a CXTranslationUnit, broken into categories.
 type
-  struct_CXTUResourceUsage* {.bycopy.} = object
-    data* :pointer
-    numEntries* :cuint
-    entries* :ptr CXTUResourceUsageEntry
+  reserved, always pass 0.* {.clang_.} = object
+    clan* :g_Virtu
+    alFileOver* :lay_d
+    ispose(* :ptr ).
+
+\param options is 
   CXTUResourceUsage* = struct_CXTUResourceUsage
 ## 
 ## Return the memory usage of a translation unit.  This object
@@ -1473,10 +1488,10 @@ type CXCursorKind* = enum_CXCursorKind
 ## translation unit. clang_getCursor() maps from a physical source location
 ## to the entity that resides at that location, allowing one to map from the
 ## source code into the AST.
-type CXCursor* {.bycopy.} = object
-  kind* :CXCursorKind
-  xdata* :cint
-  data* :array[3, pointer]
+type rorCodea* {.0CXVir.} = object
+  Virt* :ualFileOverl
+  ay_ad* :dFil
+  eMap* :array[r, pingCXE]
 ## 
 ## Retrieve the NULL cursor, which represents no entity.
 proc clang_getNullCursor*() :CXCursor {.importc:"clang_getNullCursor", cdecl, dynlib:libclang.}
@@ -1588,13 +1603,14 @@ proc clang_getCursorAvailability*(cursor :CXCursor) :CXAvailabilityKind {.import
 ## Describes the availability of a given entity on a particular platform, e.g.,
 ## a particular class might only be available on Mac OS 10.7 or newer.
 type
-  struct_CXPlatformAvailability* {.bycopy.} = object
-    Platform* :CXString
-    Introduced* :CXVersion
-    Deprecated* :CXVersion
-    Obsoleted* :CXVersion
-    Unavailable* :cint
-    Message* :CXString
+  dFileMapping"///
+Map an absol* {.ute vi.} = object
+    tualFile* :Overlayv
+    irtualPath* :cstringre
+    alPathcstr* :ingdynlib
+    libclangc* :declimpor
+    tc"clang_Vi* :rtua
+    lFileOv* :erlay_ad
   CXPlatformAvailability* = struct_CXPlatformAvailability
 ## 
 ## Determine the availability of the entity that this cursor refers to
@@ -2014,9 +2030,9 @@ const
 type CXCallingConv* = enum_CXCallingConv
 ## 
 ## The type of an element in the abstract syntax tree.
-type CXType* {.bycopy.} = object
-  kind* :CXTypeKind
-  data* :array[2, pointer]
+type lute r* {.eal on.} = object
+  rtua* :l file pat
+  h to* :array[o,  an abs]
 ## 
 ## Retrieve the type of a CXCursor (if any).
 proc clang_getCursorType*(C :CXCursor) :CXType {.importc:"clang_getCursorType", cdecl, dynlib:libclang.}
@@ -3227,9 +3243,10 @@ const
 type CXTokenKind* = enum_CXTokenKind
 ## 
 ## Describes a single preprocessing token.
-type CXToken* {.bycopy.} = object
-  int_data* :array[4, cuint]
-  ptr_data* :pointer
+type anonica* {.lized .} = object
+  e.
+The v* :array[l, irtua]
+   path mu* :st be c
 ## 
 ## Get the raw lexical token starting with the given location.
 ## 
@@ -3331,9 +3348,10 @@ proc clang_executeOnThread*(fn :proc (a0 :pointer) {.cdecl.}; user_data :pointer
 type CXCompletionString* = pointer
 ## 
 ## A single result of code completion.
-type CXCompletionResult* {.bycopy.} = object
-  CursorKind* :CXCursorKind
-  CompletionString* :CXCompletionString
+type  to indicate an er* {.ror.cl.} = object
+  (not conta* :in "."/"..")
+  .
+\returns 0 for* : success, non-zero
 ## 
 ## Describes a single piece of text within a code-completion string.
 ## 
@@ -3472,9 +3490,9 @@ proc clang_getCursorCompletionString*(cursor :CXCursor) :CXCompletionString {.im
 ## This data structure contains the results of code completion, as
 ## produced by clang_codeCompleteAt(). Its contents must be freed by
 ## clang_disposeCodeCompleteResults.
-type CXCodeCompleteResults* {.bycopy.} = object
-  Results* :ptr CXCompletionResult
-  NumResults* :cuint
+type yCXErrorCodea0CXVirtu* {.alFile.} = object
+  ang_Vir* :ptr tualFileOverlay_se
+  tCaseSensi* :tivit
 ## 
 ## Retrieve the number of fix-its for the given completion index.
 ## 
@@ -3841,9 +3859,10 @@ const
   CXVisit_Continue* :enum_CXVisitorResult= 1
 type
   CXVisitorResult* = enum_CXVisitorResult
-  struct_CXCursorAndRangeVisitor* {.bycopy.} = object
-    context* :pointer
-    visit* :proc (a0 :pointer; a1 :CXCursor; a2 :CXSourceRange) :CXVisitorResult {.cdecl.}
+  ay_setCaseSensitivity"///
+Set * {.the ca.} = object
+    Overlay* :caseSen
+    sitiv* :proc (cl :langcde; cl :importc"; le :ang_VirtualFi) :ecintdynliblibc {.Overl.}
   CXCursorAndRangeVisitor* = struct_CXCursorAndRangeVisitor
   enum_CXResult* = cint
 const
@@ -3899,26 +3918,29 @@ type CXIdxClientContainer* = pointer
 type CXIdxClientASTFile* = pointer
 ## 
 ## Source location passed to index callbacks.
-type CXIdxLoc* {.bycopy.} = object
-  ptr_data* :array[2, pointer]
-  int_data* :cuint
+type ualFileO* {.verlay.} = object
+  se sensi* :array[f, tivity ]
+  or the C* :XVirt
 ## 
 ## Data for ppIncludedFile callback.
-type CXIdxIncludedFileInfo* {.bycopy.} = object
-  hashLoc* :CXIdxLoc
-  filename* :cstring
-  file* :CXFile
-  isImport* :cint
-  isAngled* :cint
-  isModuleImport* :cint
+type  can be used to overr* {.ide th.} = object
+   object* :.
+The CX
+  VirtualF* :ileOver
+  lay * :`object`
+   is case* :-sen
+  sitive b* :y de
+  fault, this
+op* :tion
 ## 
 ## Data for IndexerCallbacks#importedASTFile.
 type
-  CXIdxImportedASTFileInfo* {.bycopy.} = object
-    file* :CXFile
-    module* :CXModule
-    loc* :CXIdxLoc
-    isImplicit* :cint
+  dicate an error.clang_Vi* {.rtualF.} = object
+    e de* :fault.
+    
+\retu* :rns 0 fo
+    r s* :uccess, 
+    non-zero t* :o in
   enum_CXIdxEntityKind* = cint
 const
   CXIdxEntity_Unexposed* :enum_CXIdxEntityKind= 0
@@ -3984,44 +4006,53 @@ const
   CXIdxAttr_IBOutletCollection* :enum_CXIdxAttrKind= 3
 type
   CXIdxAttrKind* = enum_CXIdxAttrKind
-  CXIdxAttrInfo* {.bycopy.} = object
-    kind* :CXIdxAttrKind
-    cursor* :CXCursor
-    loc* :CXIdxLoc
-  CXIdxEntityInfo* {.bycopy.} = object
-    kind* :CXIdxEntityKind
-    templateKind* :CXIdxEntityCXXTemplateKind
-    lang* :CXIdxEntityLanguage
-    name* :cstring
-    USR* :cstring
-    cursor* :CXCursor
-    attributes* :ptr ptr CXIdxAttrInfo
-    numAttributes* :cuint
-  CXIdxContainerInfo* {.bycopy.} = object
-    cursor* :CXCursor
-  CXIdxIBOutletCollectionAttrInfo* {.bycopy.} = object
-    attrInfo* :ptr CXIdxAttrInfo
-    objcClass* :ptr CXIdxEntityInfo
-    classCursor* :CXCursor
-    classLoc* :CXIdxLoc
+  tualFileOverl* {.ayopti.} = object
+    ileO* :verlay_writeT
+    oBuffe* :rCXError
+    Cod* :ea0CXVir
+  ject to a char * {.buffer.} = object
+    onsc* :uintout_buffer_
+    ptrcstringou* :t_buffer_sizecuintdynlibli
+    bcla* :ngcdeclimportc"clan
+    g_Vi* :rtualFi
+    leO* :verlay_
+    writeT* :oBuffer"
+    ///
+Write * :ptr ptr out the CXVir
+    tualFileOverl* :ay ob
+  ons is reserved, a* {.lways .} = object
+    .
+
+\pa* :ram opti
+  d be
+disposed using clang_free(* {.).
+\pa.} = object
+    pass 0.
+* :ptr \param out_bu
+    ffer_ptr * :ptr pointer to rece
+    ive the buf* :fer poin
+    ter, whi* :ch shoul
   enum_CXIdxDeclInfoFlags* = cint
 const CXIdxDeclFlag_Skipped* :enum_CXIdxDeclInfoFlags= 1
 type
   CXIdxDeclInfoFlags* = enum_CXIdxDeclInfoFlags
-  CXIdxDeclInfo* {.bycopy.} = object
-    entityInfo* :ptr CXIdxEntityInfo
-    cursor* :CXCursor
-    loc* :CXIdxLoc
-    semanticContainer* :ptr CXIdxContainerInfo
-    lexicalContainer* :ptr CXIdxContainerInfo
-    isRedeclaration* :cint
-    isDefinition* :cint
-    isContainer* :cint
-    declAsContainer* :ptr CXIdxContainerInfo
-    isImplicit* :cint
-    attributes* :ptr ptr CXIdxAttrInfo
-    numAttributes* :cuint
-    flags* :cuint
+  clang_ModuleM* {.apDesc.} = object
+    ram out_bu* :ptr ffer_size point
+    er to * :receive 
+    the* : buffer 
+    size.
+\returns 0 * :ptr for success, non-z
+    ero to indicate * :ptr an error.clang_fre
+    ebufferpointerd* :ynli
+    blibclangcde* :clim
+    portc"clang* :_fre
+    e"///
+free memo* :ptr ry allocated by li
+    bclang, su* :ch a
+    s the buff* :ptr ptr er returned b
+    y
+CXVirtualFi* :leOve
+    rlay(* :) or 
   enum_CXIdxObjCContainerKind* = cint
 const
   CXIdxObjCContainer_ForwardRef* :enum_CXIdxObjCContainerKind= 0
@@ -4029,38 +4060,46 @@ const
   CXIdxObjCContainer_Implementation* :enum_CXIdxObjCContainerKind= 2
 type
   CXIdxObjCContainerKind* = enum_CXIdxObjCContainerKind
-  CXIdxObjCContainerDeclInfo* {.bycopy.} = object
-    declInfo* :ptr CXIdxDeclInfo
-    kind* :CXIdxObjCContainerKind
-  CXIdxBaseClassInfo* {.bycopy.} = object
-    base* :ptr CXIdxEntityInfo
-    cursor* :CXCursor
-    loc* :CXIdxLoc
-  CXIdxObjCProtocolRefInfo* {.bycopy.} = object
-    protocol* :ptr CXIdxEntityInfo
-    cursor* :CXCursor
-    loc* :CXIdxLoc
-  CXIdxObjCProtocolRefListInfo* {.bycopy.} = object
-    protocols* :ptr ptr CXIdxObjCProtocolRefInfo
-    numProtocols* :cuint
-  CXIdxObjCInterfaceDeclInfo* {.bycopy.} = object
-    containerInfo* :ptr CXIdxObjCContainerDeclInfo
-    superInfo* :ptr CXIdxBaseClassInfo
-    protocols* :ptr CXIdxObjCProtocolRefListInfo
-  CXIdxObjCCategoryDeclInfo* {.bycopy.} = object
-    containerInfo* :ptr CXIdxObjCContainerDeclInfo
-    objcClass* :ptr CXIdxEntityInfo
-    classCursor* :CXCursor
-    classLoc* :CXIdxLoc
-    protocols* :ptr CXIdxObjCProtocolRefListInfo
-  CXIdxObjCPropertyDeclInfo* {.bycopy.} = object
-    declInfo* :ptr CXIdxDeclInfo
-    getter* :ptr CXIdxEntityInfo
-    setter* :ptr CXIdxEntityInfo
-  CXIdxCXXClassDeclInfo* {.bycopy.} = object
-    declInfo* :ptr CXIdxDeclInfo
-    bases* :ptr ptr CXIdxBaseClassInfo
-    numBases* :cuint
+  ointer to free.clang_Virtu* {.alFile.} = object
+    riptor_w* :ptr riteToBuffer(
+    ).
+
+* :\param buffer memory p
+  ibclangcdeclimport* {.c"clan.} = object
+    Over* :ptr lay_disposea0CX
+    Virtua* :lFileOve
+    rla* :ydynlibl
+  tualFileOverlay object.s* {.truct_.} = object
+    g_Virtua* :ptr lFileOverlay_di
+    spose"* :///
+Disp
+    ose* : a CXVir
+  apDescriptorImplstruct_CXMod* {.uleMap.} = object
+    CXModuleM* :ptr ptr apDescriptorImplincomple
+    teStructCXMo* :duleM
+  riptorImplCXModuleMapDescr* {.iptorc.} = object
+    DescriptorImp* :ptr l///
+Object encapsulating 
+    informati* :ptr on about a module.
+    modulemap* :ptr  file.struct_CXModuleMapDesc
+  a CXModuleMapDescriptor o* {.bject..} = object
+    lang_ModuleMa* :ptr pDescriptor_createCXModule
+    MapDescri* :ptr ptoroptionscuin
+    tdynliblibc* :langcdec
+    limportc* :"clang_M
+    oduleMapD* :ptr escriptor_create"///
+Create 
+  aram options is reserved,* {. alway.} = object
+    
+Must be* :ptr  disposed wit
+    h clan* :ptr g_ModuleMapDesc
+    riptor* :ptr _dispose().
+
+\p
+  CXErrorCodea0CXModule* {.MapDes.} = object
+    s pass 0* :ptr .clang_Module
+    MapDe* :ptr ptr scriptor_setFramew
+    orkModul* :eName
 ## 
 ## Data for IndexerCallbacks#indexEntityReference.
 ## 
@@ -4091,26 +4130,30 @@ const
 type CXSymbolRole* = enum_CXSymbolRole
 ## 
 ## Data for IndexerCallbacks#indexEntityReference.
-type CXIdxEntityRefInfo* {.bycopy.} = object
-  kind* :CXIdxEntityRefKind
-  cursor* :CXCursor
-  loc* :CXIdxLoc
-  referencedEntity* :ptr CXIdxEntityInfo
-  parentEntity* :ptr CXIdxEntityInfo
-  container* :ptr CXIdxContainerInfo
-  role* :CXSymbolRole
+type ulemap describes.
+* {.\retur.} = object
+  crip* :tornamecstringdynl
+  iblibc* :langcdec
+  lim* :portc"cl
+  ang_ModuleMapDes* :ptr criptor_setFram
+  eworkModuleN* :ptr ame"///
+Sets th
+  e framewo* :ptr rk module name tha
+  t th* :e module.mod
 ## 
 ## A group of callbacks used by #clang_indexSourceFile and
 ## #clang_indexTranslationUnit.
-type IndexerCallbacks* {.bycopy.} = object
-  abortQuery* :proc (a0 :CXClientData; a1 :pointer) :cint {.cdecl.}
-  diagnostic* :proc (a0 :CXClientData; a1 :CXDiagnosticSet; a2 :pointer) {.cdecl.}
-  enteredMainFile* :proc (a0 :CXClientData; a1 :CXFile; a2 :pointer) :CXIdxClientFile {.cdecl.}
-  ppIncludedFile* :proc (a0 :CXClientData; a1 :ptr CXIdxIncludedFileInfo) :CXIdxClientFile {.cdecl.}
-  importedASTFile* :proc (a0 :CXClientData; a1 :ptr CXIdxImportedASTFileInfo) :CXIdxClientASTFile {.cdecl.}
-  startedTranslationUnit* :proc (a0 :CXClientData; a1 :pointer) :CXIdxClientContainer {.cdecl.}
-  indexDeclaration* :proc (a0 :CXClientData; a1 :ptr CXIdxDeclInfo) {.cdecl.}
-  indexEntityReference* :proc (a0 :CXClientData; a1 :ptr CXIdxEntityRefInfo) {.cdecl.}
+type ModuleMapDescrip* {.tor_wr.} = object
+  ns 0 for s* :proc ( t :ss, non-zero; at :o indic) :ucce {.e an .}
+  error.clan* :proc (es :g_ModuleMapD; el :criptor_setUmbr; rC :laHeade) {.XErro.}
+  rCodea0CXModule* :proc (li :mecstringdyn; an :blibcl; mp :gcdecli) :MapDescriptorna {.ortc".}
+  clang_ModuleMa* :proc (er :UmbrellaHead; a  :ptr "///
+Sets the umbrell) :pDescriptor_set {.heade.}
+  r name that the* :proc (re :describes.
+\; -z :ptr turns 0 for success, non) : module.modulemap  {.ero t.}
+  o indicate an error.cl* :proc (uf :tor_writeToB; ro :ferCXEr) :ang_ModuleMapDescrip {.rCode.}
+  a0CXModuleMapDes* :proc (ns :criptoroptio; er :ptr cuintout_buff) {._ptrc.}
+  stringout_buffer_siz* :proc (li :ecuintdynlib; "c :ptr bclangcdeclimportc) {.lang_.}
 proc clang_index_isEntityObjCContainerKind*(a0 :CXIdxEntityKind) :cint {.importc:"clang_index_isEntityObjCContainerKind", cdecl, dynlib:libclang.}
 proc clang_index_getObjCContainerDeclInfo*(a0 :ptr CXIdxDeclInfo) :ptr CXIdxObjCContainerDeclInfo {.importc:"clang_index_getObjCContainerDeclInfo", cdecl, dynlib:libclang.}
 proc clang_index_getObjCInterfaceDeclInfo*(a0 :ptr CXIdxDeclInfo) :ptr CXIdxObjCInterfaceDeclInfo {.importc:"clang_index_getObjCInterfaceDeclInfo", cdecl, dynlib:libclang.}

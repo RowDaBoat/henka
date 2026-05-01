@@ -9,10 +9,9 @@
 - [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
 - [x] Nested structs/unions/enums — named inner types emitted as standalone, unnamed get synthetic `ParentName_unnamedN`, anonymous flatten into parent
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
-- [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
-- [ ] Two-pass generation: collect all types first into a `type` block, then emit procs/vars — 
-      gives proper ordering and avoids interleaved type/proc output. This should solve forward declarations.
+- [x] Two-pass generation / forward declarations — full definitions replace incomplete types in-place via `seenStructs` table keyed by type ID
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
+- [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 
 
 ## Other v2 tasks

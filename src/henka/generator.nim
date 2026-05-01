@@ -47,7 +47,7 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 
       return CXChildVisit_Continue.cint
 
-  if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_CXXMethod:
+  if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_CXXMethod and kind != CXCursor_StructDecl and kind != CXCursor_UnionDecl:
     if name in conv[].seenSymbols:
       return CXChildVisit_Continue.cint
 
@@ -117,7 +117,7 @@ proc generate*(
     headerFile        : "",
     module            : 0,
     tu                : nil,
-    seenStructs       : initHashSet[system.string](),
+    seenStructs       : initTable[system.string, astTF.Id](),
     seenEnums         : initHashSet[system.string](),
     seenSymbols       : initHashSet[system.string](),
     renamer           : renamer,

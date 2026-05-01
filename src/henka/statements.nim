@@ -80,6 +80,8 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   result = CXChildVisit_Continue.cint
 
 
+proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: bool = false): cint
+
 proc emitUnnamedInnerType*(conv: var Converter, innerCursor: CXCursor, parentName: string, fieldIndex: int, isUnion: bool): astTF.Id =
   let syntheticName = parentName & "_unnamed" & $fieldIndex
   let labelKind = if isUnion: UnionType else: StructType
@@ -119,28 +121,7 @@ proc emitUnnamedInnerType*(conv: var Converter, innerCursor: CXCursor, parentNam
   result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedRef)))
 
 
-proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: bool = false): cint =
-  if name.len == 0 or ' ' in name:
-    return CXChildVisit_Continue.cint
-
-  if name in conv.seenStructs:
-    return CXChildVisit_Continue.cint
-
-  conv.seenStructs.incl name
-
-  let commentOpt = conv.add_comment(cursor)
-
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
-  let typeSpelling = clang_getCursorType(cursor).typeSpelling
-  let isTagged = typeSpelling.startsWith("struct ") or typeSpelling.startsWith("union ")
-  let labelKind = if isUnion: UnionType else: StructType
-  let structName = case isTagged
-    of true:  conv.addRenamed(labelKind, name)
-    of false: conv.addRenamed(Typedef, name)
-
-  # Collect fields
+proc collectFields(conv: var Converter, cursor: CXCursor, name: string): seq[astTF.Id] =
   var ctx = ChildCtx(conv: addr conv, name: name)
   discard clang_visitChildren(
     cursor,
@@ -193,22 +174,54 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
     ,
     addr ctx
   )
+  result = ctx.ids
 
-  var firstField :Option[astTF.Id]= none(astTF.Id)
-  let isForward = ctx.ids.len == 0
 
-  if ctx.ids.len > 0:
-    for idx in 0..<ctx.ids.len - 1:
-      conv.ast.data.bindings[ctx.ids[idx]].next = some(ctx.ids[idx + 1])
+proc buildObjectType(conv: var Converter, name: string, fieldIds: seq[astTF.Id], isTagged: bool, isUnion: bool, isForward: bool): Type =
+  let labelKind = if isUnion: UnionType else: StructType
+  let structName = case isTagged
+    of true:  conv.addRenamed(labelKind, name)
+    of false: conv.addRenamed(Typedef, name)
 
-    firstField = some(ctx.ids[0])
+  var firstField: Option[astTF.Id] = none(astTF.Id)
+  if fieldIds.len > 0:
+    for idx in 0..<fieldIds.len - 1:
+      conv.ast.data.bindings[fieldIds[idx]].next = some(fieldIds[idx + 1])
+    firstField = some(fieldIds[0])
 
   let pragmaId = conv.structPragmas(name, isForward, isTagged, isUnion)
   let keywordIdent = case isUnion
     of on:  some(conv.addName("union"))
     of off: none(astTF.Identifier)
-  let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(structName), fields: firstField, pragmas: some(pragmaId), keyword: keywordIdent)))
+
+  result = Type(kind: astTF.tObject, `object`: TypeObject(name: some(structName), fields: firstField, pragmas: some(pragmaId), keyword: keywordIdent))
+
+
+proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: bool = false): cint =
+  if name.len == 0 or ' ' in name:
+    return CXChildVisit_Continue.cint
+
+  let typeSpelling = clang_getCursorType(cursor).typeSpelling
+  let isTagged = typeSpelling.startsWith("struct ") or typeSpelling.startsWith("union ")
+  let labelKind = if isUnion: UnionType else: StructType
+  let fieldIds = conv.collectFields(cursor, name)
+  let isForward = fieldIds.len == 0
+
+  if name in conv.seenStructs:
+    if isForward:
+      return CXChildVisit_Continue.cint
+    let existingTypeId = conv.seenStructs[name]
+    conv.ast.data.types[existingTypeId] = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward = false)
+    return CXChildVisit_Continue.cint
+
+  let commentOpt = conv.add_comment(cursor)
+  if commentOpt.isSome:
+    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
+
+  let objectType = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward)
+  let typeId = conv.ast.add_type(objectType)
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.seenStructs[name] = typeId
 
   if isTagged:
     let cleanName        = conv.addRenamed(Typedef, name)
