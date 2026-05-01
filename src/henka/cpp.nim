@@ -11,34 +11,6 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
-const OperatorPatterns *:seq[(system.string, system.string, system.string)]= @[
-  ("operator+",  "`+`",  "\"# + #\""),
-  ("operator-",  "`-`",  ""),       # arity-dependent
-  ("operator*",  "`*`",  "\"# * #\""),
-  ("operator/",  "`/`",  "\"# / #\""),
-  ("operator%",  "`mod`","\"# %% #\""),
-  ("operator==", "`==`", "\"# == #\""),
-  ("operator!=", "`!=`", "\"# != #\""),
-  ("operator<",  "`<`",  "\"# < #\""),
-  ("operator<=", "`<=`", "\"# <= #\""),
-  ("operator>",  "`>`",  "\"# > #\""),
-  ("operator>=", "`>=`", "\"# >= #\""),
-  ("operator[]", "`[]`", "\"#[#]\""),
-  ("operator()", "`()`", "\"#(@)\""),
-  ("operator<<", "`shl`","\"# << #\""),
-  ("operator>>", "`shr`","\"# >> #\""),
-  ("operator&",  "`and`","\"# & #\""),
-  ("operator|",  "`or`", "\"# | #\""),
-  ("operator^",  "`xor`","\"# ^ #\""),
-  ("operator~",  "`not`","\"~#\""),
-  ("operator!",  "`not`","\"!#\""),
-  ("operator++", "inc",  "\"++#\""),
-  ("operator--", "dec",  "\"--#\""),
-  ("operator+=", "`+=`", "\"# += #\""),
-  ("operator-=", "`-=`", "\"# -= #\""),
-  ("operator*=", "`*=`", "\"# *= #\""),
-  ("operator/=", "`/=`", "\"# /= #\""),
-]
 
 proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
   if name == "operator=":

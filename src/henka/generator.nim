@@ -137,7 +137,9 @@ proc generate*(
     dynlibPath        : dynlibPath)
 
   for fileIdx, inputFile in inputFiles:
-    echo "[", fileIdx + 1, "/", inputFiles.len, "] ", inputFile
+    case inputFiles.len > 1
+    of true:  echo "[", fileIdx + 1, "/", inputFiles.len, "] ", inputFile
+    of false: echo inputFile
     var args: seq[cstring] = @[]
 
     if isCpp:

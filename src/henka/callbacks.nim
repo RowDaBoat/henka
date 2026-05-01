@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith
+from std/strutils import startsWith, endsWith
 # @deps henka
 import ./common
 
@@ -32,6 +32,8 @@ proc defaultSanitizer *(name :system.string) :system.string=
     elif name.startsWith("_")  : "priv" & name
     else                       : name
   result = result.dedupUnderscores
+  while result.endsWith("_"):
+    result = result[0..^2]
 
 proc defaultRenamer*(kind :LabelKind, name: system.string): system.string=
   result = case kind

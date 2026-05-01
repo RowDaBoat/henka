@@ -1,8 +1,48 @@
+# @deps std
+from std/strutils import startsWith
 # @deps slate
 import slate/ast as astTF
 # @deps henka
 import ./base
 export base
+
+
+const OperatorPatterns* :seq[(system.string, system.string, system.string)]= @[
+  ("operator+",  "`+`",  "\"# + #\""),
+  ("operator-",  "`-`",  ""),
+  ("operator*",  "`*`",  "\"# * #\""),
+  ("operator/",  "`/`",  "\"# / #\""),
+  ("operator%",  "`mod`","\"# %% #\""),
+  ("operator==", "`==`", "\"# == #\""),
+  ("operator!=", "`!=`", "\"# != #\""),
+  ("operator<",  "`<`",  "\"# < #\""),
+  ("operator<=", "`<=`", "\"# <= #\""),
+  ("operator>",  "`>`",  "\"# > #\""),
+  ("operator>=", "`>=`", "\"# >= #\""),
+  ("operator[]", "`[]`", "\"#[#]\""),
+  ("operator()", "`()`", "\"#(@)\""),
+  ("operator<<", "`shl`","\"# << #\""),
+  ("operator>>", "`shr`","\"# >> #\""),
+  ("operator&",  "`and`","\"# & #\""),
+  ("operator|",  "`or`", "\"# | #\""),
+  ("operator^",  "`xor`","\"# ^ #\""),
+  ("operator~",  "`not`","\"~#\""),
+  ("operator!",  "`not`","\"!#\""),
+  ("operator++", "inc",  "\"++#\""),
+  ("operator--", "dec",  "\"--#\""),
+  ("operator+=", "`+=`", "\"# += #\""),
+  ("operator-=", "`-=`", "\"# -= #\""),
+  ("operator*=", "`*=`", "\"# *= #\""),
+  ("operator/=", "`/=`", "\"# /= #\""),
+  ("operator new",    "new",    ""),
+  ("operator delete", "delete", ""),
+]
+
+proc operatorName*(name: system.string): system.string =
+  for entry in OperatorPatterns:
+    if entry[0] == name:
+      return entry[1]
+  result = name
 
 
 proc addSrc*(conv: var Converter, text: string): astTF.Location =

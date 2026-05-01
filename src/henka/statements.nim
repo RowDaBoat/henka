@@ -280,7 +280,24 @@ proc toScopedEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
 
 proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
-  if name.len == 0:
+  let isAnonymous = name.len == 0 or name.contains("unnamed") or name.contains("anonymous")
+  if isAnonymous:
+    discard clang_visitChildren(
+      cursor,
+      proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
+        if clang_getCursorKind(child) == CXCursor_EnumConstantDecl:
+          let conv        = cast[ptr Converter](data)
+          let valName     = conv[].addRenamed(EnumValue, child.spelling)
+          let valNum      = clang_getEnumConstantDeclValue(child)
+          let valLoc      = conv[].addSrc($valNum)
+          let valExpr     = conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
+          let cintTypeRef = conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv[].addName("cint"))))
+          let bindingId   = conv[].ast.add_binding(Binding(name: some(valName), dataType: some(cintTypeRef), value: some(valExpr)))
+          conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
+        return CXChildVisit_Continue.cint
+      ,
+      addr conv
+    )
     return CXChildVisit_Continue.cint
 
   if name in conv.seenEnums:
@@ -295,13 +312,14 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
     conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
 
   # C enum -> cint alias + constants (C enums are just integers)
-  let renamedEnumName = conv.renamer(EnumType, name)
+  let enumIdent       = conv.addRenamed(EnumType, name)
   let cintTypeId      = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("cint"))))
-  let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(conv.addName(renamedEnumName)), target: cintTypeId)))
+  let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(enumIdent), target: cintTypeId)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId)))
 
   # Generate constants for each enum value
-  var ectx = ChildCtx(conv: addr conv, name: renamedEnumName)
+  let sanitizedEnumName = conv.sanitizer(conv.renamer(EnumType, name))
+  var ectx = ChildCtx(conv: addr conv, name: sanitizedEnumName)
 
   discard clang_visitChildren(
     cursor,
@@ -322,7 +340,7 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
   # Clean alias: WGPUFoo = enum_WGPUFoo
   let cleanName    = conv.addRenamed(Typedef, name)
-  let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(renamedEnumName))))
+  let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
   let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: cleanAliasId)))
 
@@ -330,7 +348,8 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
 
 proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
-  let funcName = conv.addRenamed(Proc, name)
+  let nimName  = if name.startsWith("operator"): operatorName(name) else: name
+  let funcName = conv.addRenamed(Proc, nimName)
   let funcType = clang_getCursorType(cursor)
   let retType  = clang_getResultType(funcType)
   let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))

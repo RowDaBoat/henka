@@ -8,7 +8,8 @@
 - [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
 - [x] Nested structs/unions/enums — named inner types emitted as standalone, unnamed get synthetic `ParentName_unnamedN`, anonymous flatten into parent
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
-- [x] Two-pass generation / forward declarations — full definitions replace incomplete types in-place via `seenStructs` table keyed by type ID
+- [x] Forward declarations — full definitions replace incomplete types in-place via `seenStructs` table keyed by type ID
+- [ ] Two-pass generation: types before procs/consts — dearimgui bindings fail to compile because forward-declared types (`ImVector`, `ImDrawIdx`) are used before they're defined. Need to collect all types into one block first, then emit consts/procs
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 
@@ -27,7 +28,11 @@
 
 
 ## Other v2 tasks
+- [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`, and operator expressions. Would fix most macro-related failures across all tested headers
 - [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
+- [ ] C operators in macro values — `|`, `&`, `~` in macro expansions need rewriting to Nim `or`, `and`, `not` (currently requires user `valueMapper`)
+- [ ] Nim case-insensitive name collisions — `GLFW_CURSOR` (const) vs `GLFWcursor` (type) are the same in Nim. Need automatic collision detection and renaming
+- [ ] C++ struct methods not generated — dearimgui structs with methods (e.g. `ImFontAtlas::GetTexDataAsRGBA32`) only emit fields, not methods. Only `class` goes through `toClass`; C++ structs with methods need the same treatment
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] so/dll/dylib
 - [ ] write DSL for AST
@@ -37,14 +42,46 @@
 
 
 ## Testing
-- [ ] Test with SDL2/SDL3 headers
-- [ ] Test with Vulkan headers
-- [ ] Test with OpenGL headers
-- [ ] Test with raylib headers
-- [ ] Test with GLFW headers
-- [ ] Test with stb_image and other stb headers
-- [ ] Test with godot-cpp: verify generated bindings compile against Godot engine
 - [x] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
+- [x] Test with GLFW headers
+- [ ] Test with stb_image and other stb headers (11/20 pass `nim check`)
+  - [x] stb_image — generates, compiles, runs
+  - [ ] `extern` macro values break 3 headers (stb_herringbone_wang_tile, stb_sprintf, stb_voxel_render)
+  - [ ] Double underscores in type spellings not sanitized — `stbtt__buf` invalid in Nim (stb_truetype, stb_image_resize2)
+  - [ ] Forward reference ordering — types used before defined (stb_ds, stb_rect_pack, stb_hexwave)
+  - [ ] Type name used as const value — `stb_textedit` macro expands to type name
+- [x] Test with OpenGL headers — gl.h/glext.h/glcorearb.h all pass `nim check` (20K lines total). Requires user callbacks for: type name collisions (`_t` suffix), khronos type mappings, C literal suffixes (`ull`→`'u64`), calling convention macro filtering
+- [x] Test with raylib headers — 1279 lines, passes `nim check`, compiles and links against libraylib.a
+  - [ ] Color macro constants (`CLITERAL(Color){...}`) need manual override — C compound literals have no Nim equivalent
+  - [ ] Deprecated alias macros (`GetMouseRay = GetScreenToWorldRay`) reference symbols defined later — forward reference ordering
+  - [ ] `va_list` type not mapped — requires user `typeMapper` to map to `pointer`
+  - [ ] Visibility macros (`RLAPI`, `RMAPI`) expand to `extern` — need filtering
+  - [ ] Float suffix `f` in macro values (`3.14f`) not stripped
+- [ ] Test with Vulkan headers — 14434 lines generated from vulkan_core.h, triangle renders with manual fixes
+  - [ ] Union typedef aliases emit as `incompleteStruct` instead of aliasing the union — `VkClearValue`, `VkClearColorValue` etc. need manual `= union_Vk*` fixup (12 types)
+  - [ ] Deprecated macro aliases collide under Nim case-insensitivity — `VK_KHR_MAINTENANCE1` vs `VK_KHR_MAINTENANCE_1` (6 macros)
+  - [ ] Enum value collisions — `VK_COLORSPACE_SRGB_NONLINEAR_KHR` vs `VK_COLOR_SPACE_SRGB_NONLINEAR_KHR` (2 values)
+  - [ ] Video codec types (`StdVideoH264*`, `StdVideoH265*`) undeclared — from `vulkan_video_codec_*.h` not included (19 types, need stubs or include)
+  - [x] Khronos type mappings, C literal suffixes, calling convention macros — handled by user callbacks
+- [x] Test with SDL2/SDL3 headers — 15K lines generated from SDL.h, compiles and renders with manual fixups
+  - [ ] Nim case-insensitive collisions between consts and types/procs (`SDL_QUIT`/`SDL_Quit`, `SDL_HAPTICCONSTANT`/`SDL_HapticConstant`, etc.)
+  - [ ] C cast expressions in macro values (`((Uint32) -1)`)
+  - [ ] Function-like macro calls in const values (`SDL_VERSIONNUM(...)`, `SDL_BUTTON(...)`)
+  - [ ] Union typedef forward declaration issues (`SDL_Event`, `SDL_HapticEffect`)
+  - [ ] Unnamed struct fields in unions (`SDL_RWops`, `SDL_GameControllerButtonBind`)
+  - [ ] Compiler builtin macros (`__func__`, `__BYTE_ORDER`, `__GNUC__`)
+  - [x] C operators in values, literal suffixes — handled by user callbacks
+- [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
+- [ ] Test with flecs — 9K lines generated from 40K line header
+  - [ ] Forward references — 27 undeclared types used before defined. Needs two-pass generation
+  - [ ] `ECS_CAST(type, value)` macro in const values — C cast expression, 21 occurrences
+  - [ ] C struct initializer macros — `(ecs_strbuf_t){0}`, `ECS_HTTP_REPLY_INIT`, etc.
+  - [ ] Function-like macro calls in values — `ecs_id(...)`, `ECS_SIZEOF(...)`, `ECS_ALIGN(...)`
+  - [ ] Macro alias chains — `ECS_TAG_DECLARE = ECS_DECLARE`, `ecs_dbg = ecs_dbg_1`
+  - [ ] `llu`/`ull` suffix variants on hex literals — `0xFFull`, `1llu`
+  - [ ] `ptr void` from typedef-to-void pointer (`ecs_flagsn_t`)
+- [ ] Test with qu3e (C++ physics) — 205 lines, 1 error: forward reference (`q3BodyType` enum used before defined). Macro constants use `r32()` cast wrapper and `FLT_MAX`
+- [ ] Test with clay — 492 lines generated, only 5 errors. Blocked by double underscore in type references (`Clay__SizingType`). Macro-heavy API (designated initializers, comma operators) but most are function-like and correctly skipped
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
