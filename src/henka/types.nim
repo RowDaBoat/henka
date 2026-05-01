@@ -87,9 +87,9 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
     return conv.add_primitive(mapped.get)
 
   if named.startsWith("struct "):
-    named = conv.renamer(StructType, named[7..^1])
+    named = conv.sanitizer(conv.renamer(StructType, named[7..^1]))
   elif named.startsWith("enum "):
-    named = conv.renamer(Typedef, named[5..^1])
+    named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
   elif ' ' in named:
     return conv.add_primitive("pointer")
 

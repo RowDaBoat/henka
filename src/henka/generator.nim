@@ -1,5 +1,5 @@
 # @deps std
-from std/os import paramStr, paramCount, splitFile, changeFileExt
+from std/os import paramStr, paramCount, splitFile, changeFileExt, parentDir
 from std/strutils import join, startsWith
 # @deps slate
 import slate/ast as astTF
@@ -14,10 +14,9 @@ import ./[clang, common, pragmas, statements, cpp, callbacks]
 proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cdecl.} =
   var conv = cast[ptr Converter](clientData)
   let kind = clang_getCursorKind(cursor)
-  let accepted = case conv[].includeDir.len > 0
-    of true:  cursor.isFromDirectory(conv[].includeDir)
+  let accepted = case conv[].rootDir.len > 0
+    of true:  cursor.isFromDirectory(conv[].rootDir)
     of false: cursor.isFromFile(conv[].headerFile)
-
   if not accepted:
     return CXChildVisit_Continue.cint
 
@@ -48,7 +47,7 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 
       return CXChildVisit_Continue.cint
 
-  if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_MacroDefinition and kind != CXCursor_FunctionDecl and kind != CXCursor_CXXMethod:
+  if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_CXXMethod:
     if name in conv[].seenSymbols:
       return CXChildVisit_Continue.cint
 
@@ -73,13 +72,9 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 #_______________________________________
 # @section Generator: Internal Helpers
 #_____________________________
-proc failed_module(inputFile: system.string, clangArgs: seq[system.string], isCpp: bool, includeDir: system.string): slate.codegen.Module =
+proc failed_module(inputFile: system.string, clangArgs: seq[system.string], isCpp: bool): slate.codegen.Module =
   var diagnostic = "# Failed to parse: " & inputFile & "\n"
   diagnostic.add "# isCpp: " & $isCpp & "\n"
-
-  if includeDir.len > 0:
-    diagnostic.add "# includeDir: " & includeDir & "\n"
-
   if clangArgs.len > 0:
     diagnostic.add "# clangArgs: " & clangArgs.join(" ") & "\n"
 
@@ -94,7 +89,6 @@ proc generate*(
   inputFiles        : seq[system.string],
   clangArgs         : seq[system.string] = @[],
   isCpp             : bool               = false,
-  includeDir        : system.string      = "",
   renamer           : Renamer            = defaultRenamer,
   sanitizer         : Sanitizer          = defaultSanitizer,
   constructorName   : NamePattern        = defaultConstructorName,
@@ -129,7 +123,7 @@ proc generate*(
     renamer           : renamer,
     sanitizer         : sanitizer,
     isCpp             : isCpp,
-    includeDir        : includeDir,
+    rootDir           : inputFiles[0].parentDir,
     constructorName   : constructorName,
     destructorName    : destructorName,
     symbolFilter      : symbolFilter,
@@ -161,7 +155,7 @@ proc generate*(
 
     let unit = clang_parseTranslationUnit(index, inputFile.cstring, argsPtr, argsLen, nil, 0, opts)
     if unit.isNil:
-      result.modules.add failed_module(inputFile, clangArgs, isCpp, includeDir)
+      result.modules.add failed_module(inputFile, clangArgs, isCpp)
       continue
 
     let moduleIdx = conv.ast.data.modules.len
@@ -207,7 +201,6 @@ proc generate*(
   inputFile         : system.string,
   clangArgs         : seq[system.string] = @[],
   isCpp             : bool               = false,
-  includeDir        : system.string      = "",
   renamer           : Renamer            = defaultRenamer,
   sanitizer         : Sanitizer          = defaultSanitizer,
   constructorName   : NamePattern        = defaultConstructorName,
@@ -222,13 +215,13 @@ proc generate*(
   dynlibName        : system.string      = "",
   dynlibPath        : system.string      = ""
 ): system.string =
-  let generated = generate(@[inputFile], clangArgs, isCpp, includeDir,
+  let generated = generate(@[inputFile], clangArgs, isCpp,
     renamer, sanitizer, constructorName, destructorName, symbolFilter, symbolOverride,
     unnamedFieldNamer, typeMapper, pragmaOverride, valueMapper,
     singleFileParse = false,
     linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath)
 
-  if generated.modules.len > 0:
-    result = generated.modules[0].definitions
-  else:
-    result = ""
+  result = case generated.modules.len > 0
+    of true:  generated.modules[0].definitions
+    of false: ""
+

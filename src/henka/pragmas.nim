@@ -1,5 +1,5 @@
 # @deps std
-from std/os import lastPathPart
+from std/os import lastPathPart, relativePath
 from std/strutils import join
 # @deps slate
 import slate/ast as astTF
@@ -50,7 +50,10 @@ proc addPragma*(conv: var Converter; name: string; value: string = ""): astTF.Id
 
 
 proc headerPragma*(conv: Converter): (system.string, system.string) =
-  result = ("header", "\"" & conv.headerFile.lastPathPart & "\"")
+  let path = case conv.rootDir.len > 0
+    of true:  conv.headerFile.relativePath(conv.rootDir)
+    of false: conv.headerFile.lastPathPart
+  result = ("header", "\"" & path & "\"")
 
 
 proc linkPragma*(conv: Converter): (system.string, system.string)=

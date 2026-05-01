@@ -4,7 +4,7 @@ from std/sets import HashSet, initHashSet, incl, contains
 # @deps slate
 import slate/ast as astTF
 # @deps henka
-import ./clang/api
+import ./clang
 
 export Option, none, some, isSome
 export HashSet, initHashSet, incl, contains
@@ -32,7 +32,7 @@ type Sanitizer*         = proc(name: system.string): system.string
 type Converter* = object
   ast*               : astTF.Ast
   headerFile*        : string
-  includeDir*        : system.string
+  rootDir*           : system.string
   module*            : astTF.Id
   tu*                : CXTranslationUnit
   seenStructs*       : HashSet[system.string]

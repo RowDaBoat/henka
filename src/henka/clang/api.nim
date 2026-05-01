@@ -446,6 +446,84 @@ proc clang_getDiagnosticFixIt*(Diagnostic :CXDiagnostic; FixIt :cuint; Replaceme
 const CINDEX_VERSION_MAJOR* = 0
 const CINDEX_VERSION_MINOR* = 64
 ## 
+## Return the timestamp for use with Clang's
+## -fbuild-session-timestamp= option.
+proc clang_getBuildSessionTimestamp*() :culonglong {.importc:"clang_getBuildSessionTimestamp", cdecl, dynlib:libclang.}
+type
+  struct_CXVirtualFileOverlayImpl* {.incompleteStruct.} = object
+  CXVirtualFileOverlayImpl* = struct_CXVirtualFileOverlayImpl
+## 
+## Object encapsulating information about overlaying virtual
+## file/directories over the real file system.
+type CXVirtualFileOverlay* = ptr struct_CXVirtualFileOverlayImpl
+## 
+## Create a CXVirtualFileOverlay object.
+## Must be disposed with clang_VirtualFileOverlay_dispose().
+## 
+## \param options is reserved, always pass 0.
+proc clang_VirtualFileOverlay_create*(options :cuint) :CXVirtualFileOverlay {.importc:"clang_VirtualFileOverlay_create", cdecl, dynlib:libclang.}
+## 
+## Map an absolute virtual file path to an absolute real one.
+## The virtual path must be canonicalized (not contain "."/"..").
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_VirtualFileOverlay_addFileMapping*(a0 :CXVirtualFileOverlay; virtualPath :cstring; realPath :cstring) :CXErrorCode {.importc:"clang_VirtualFileOverlay_addFileMapping", cdecl, dynlib:libclang.}
+## 
+## Set the case sensitivity for the CXVirtualFileOverlay object.
+## The CXVirtualFileOverlay object is case-sensitive by default, this
+## option can be used to override the default.
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_VirtualFileOverlay_setCaseSensitivity*(a0 :CXVirtualFileOverlay; caseSensitive :cint) :CXErrorCode {.importc:"clang_VirtualFileOverlay_setCaseSensitivity", cdecl, dynlib:libclang.}
+## 
+## Write out the CXVirtualFileOverlay object to a char buffer.
+## 
+## \param options is reserved, always pass 0.
+## \param out_buffer_ptr pointer to receive the buffer pointer, which should be
+## disposed using clang_free().
+## \param out_buffer_size pointer to receive the buffer size.
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_VirtualFileOverlay_writeToBuffer*(a0 :CXVirtualFileOverlay; options :cuint; out_buffer_ptr :ptr cstring; out_buffer_size :ptr cuint) :CXErrorCode {.importc:"clang_VirtualFileOverlay_writeToBuffer", cdecl, dynlib:libclang.}
+## 
+## free memory allocated by libclang, such as the buffer returned by
+## CXVirtualFileOverlay() or clang_ModuleMapDescriptor_writeToBuffer().
+## 
+## \param buffer memory pointer to free.
+proc clang_free*(buffer :pointer) {.importc:"clang_free", cdecl, dynlib:libclang.}
+## 
+## Dispose a CXVirtualFileOverlay object.
+proc clang_VirtualFileOverlay_dispose*(a0 :CXVirtualFileOverlay) {.importc:"clang_VirtualFileOverlay_dispose", cdecl, dynlib:libclang.}
+type
+  struct_CXModuleMapDescriptorImpl* {.incompleteStruct.} = object
+  CXModuleMapDescriptorImpl* = struct_CXModuleMapDescriptorImpl
+## 
+## Object encapsulating information about a module.modulemap file.
+type CXModuleMapDescriptor* = ptr struct_CXModuleMapDescriptorImpl
+## 
+## Create a CXModuleMapDescriptor object.
+## Must be disposed with clang_ModuleMapDescriptor_dispose().
+## 
+## \param options is reserved, always pass 0.
+proc clang_ModuleMapDescriptor_create*(options :cuint) :CXModuleMapDescriptor {.importc:"clang_ModuleMapDescriptor_create", cdecl, dynlib:libclang.}
+## 
+## Sets the framework module name that the module.modulemap describes.
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_ModuleMapDescriptor_setFrameworkModuleName*(a0 :CXModuleMapDescriptor; name :cstring) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_setFrameworkModuleName", cdecl, dynlib:libclang.}
+## 
+## Sets the umbrella header name that the module.modulemap describes.
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_ModuleMapDescriptor_setUmbrellaHeader*(a0 :CXModuleMapDescriptor; name :cstring) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_setUmbrellaHeader", cdecl, dynlib:libclang.}
+## 
+## Write out the CXModuleMapDescriptor object to a char buffer.
+## 
+## \param options is reserved, always pass 0.
+## \param out_buffer_ptr pointer to receive the buffer pointer, which should be
+## disposed using clang_free().
+## \param out_buffer_size pointer to receive the buffer size.
+## \returns 0 for success, non-zero to indicate an error.
+proc clang_ModuleMapDescriptor_writeToBuffer*(a0 :CXModuleMapDescriptor; options :cuint; out_buffer_ptr :ptr cstring; out_buffer_size :ptr cuint) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_writeToBuffer", cdecl, dynlib:libclang.}
+## 
+## Dispose a CXModuleMapDescriptor object.
+proc clang_ModuleMapDescriptor_dispose*(a0 :CXModuleMapDescriptor) {.importc:"clang_ModuleMapDescriptor_dispose", cdecl, dynlib:libclang.}
+## 
 ## An "index" that consists of a set of translation units that would
 ## typically be linked together into an executable or library.
 type
@@ -2568,9 +2646,9 @@ type CXCursorVisitor* = proc (a0 :CXCursor; a1 :CXCursor; a2 :CXClientData) :CXC
 ## prematurely by the visitor returning CXChildVisit_Break.
 proc clang_visitChildren*(parent :CXCursor; visitor :CXCursorVisitor; client_data :CXClientData) :cuint {.importc:"clang_visitChildren", cdecl, dynlib:libclang.}
 type
-  struct_priv_CXChildVisitResult* {.incompleteStruct.} = object
-  priv_CXChildVisitResult* = struct_priv_CXChildVisitResult
-  CXCursorVisitorBlock* = ptr struct_priv_CXChildVisitResult
+  struct_CXChildVisitResult* {.incompleteStruct.} = object
+  priv_CXChildVisitResult* = struct_CXChildVisitResult
+  CXCursorVisitorBlock* = ptr struct_CXChildVisitResult
 ## 
 ## Visits the children of a cursor using the specified block.  Behaves
 ## identically to clang_visitChildren() in all other respects.
@@ -3800,9 +3878,9 @@ proc clang_findReferencesInFile*(cursor :CXCursor; file :CXFile; visitor :CXCurs
 ## \returns one of the CXResult enumerators.
 proc clang_findIncludesInFile*(TU :CXTranslationUnit; file :CXFile; visitor :CXCursorAndRangeVisitor) :CXResult {.importc:"clang_findIncludesInFile", cdecl, dynlib:libclang.}
 type
-  struct_priv_CXCursorAndRangeVisitorBlock* {.incompleteStruct.} = object
-  priv_CXCursorAndRangeVisitorBlock* = struct_priv_CXCursorAndRangeVisitorBlock
-  CXCursorAndRangeVisitorBlock* = ptr struct_priv_CXCursorAndRangeVisitorBlock
+  struct_CXCursorAndRangeVisitorBlock* {.incompleteStruct.} = object
+  priv_CXCursorAndRangeVisitorBlock* = struct_CXCursorAndRangeVisitorBlock
+  CXCursorAndRangeVisitorBlock* = ptr struct_CXCursorAndRangeVisitorBlock
 proc clang_findReferencesInFileWithBlock*(a0 :CXCursor; a1 :CXFile; a2 :CXCursorAndRangeVisitorBlock) :CXResult {.importc:"clang_findReferencesInFileWithBlock", cdecl, dynlib:libclang.}
 proc clang_findIncludesInFileWithBlock*(a0 :CXTranslationUnit; a1 :CXFile; a2 :CXCursorAndRangeVisitorBlock) :CXResult {.importc:"clang_findIncludesInFileWithBlock", cdecl, dynlib:libclang.}
 ## 
@@ -4320,84 +4398,6 @@ proc clang_CompileCommand_getMappedSourcePath*(a0 :CXCompileCommand; I :cuint) :
 ## 
 ## Get the I'th mapped source content for the compiler invocation.
 proc clang_CompileCommand_getMappedSourceContent*(a0 :CXCompileCommand; I :cuint) :CXString {.importc:"clang_CompileCommand_getMappedSourceContent", cdecl, dynlib:libclang.}
-## 
-## Return the timestamp for use with Clang's
-## -fbuild-session-timestamp= option.
-proc clang_getBuildSessionTimestamp*() :culonglong {.importc:"clang_getBuildSessionTimestamp", cdecl, dynlib:libclang.}
-type
-  struct_CXVirtualFileOverlayImpl* {.incompleteStruct.} = object
-  CXVirtualFileOverlayImpl* = struct_CXVirtualFileOverlayImpl
-## 
-## Object encapsulating information about overlaying virtual
-## file/directories over the real file system.
-type CXVirtualFileOverlay* = ptr struct_CXVirtualFileOverlayImpl
-## 
-## Create a CXVirtualFileOverlay object.
-## Must be disposed with clang_VirtualFileOverlay_dispose().
-## 
-## \param options is reserved, always pass 0.
-proc clang_VirtualFileOverlay_create*(options :cuint) :CXVirtualFileOverlay {.importc:"clang_VirtualFileOverlay_create", cdecl, dynlib:libclang.}
-## 
-## Map an absolute virtual file path to an absolute real one.
-## The virtual path must be canonicalized (not contain "."/"..").
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_VirtualFileOverlay_addFileMapping*(a0 :CXVirtualFileOverlay; virtualPath :cstring; realPath :cstring) :CXErrorCode {.importc:"clang_VirtualFileOverlay_addFileMapping", cdecl, dynlib:libclang.}
-## 
-## Set the case sensitivity for the CXVirtualFileOverlay object.
-## The CXVirtualFileOverlay object is case-sensitive by default, this
-## option can be used to override the default.
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_VirtualFileOverlay_setCaseSensitivity*(a0 :CXVirtualFileOverlay; caseSensitive :cint) :CXErrorCode {.importc:"clang_VirtualFileOverlay_setCaseSensitivity", cdecl, dynlib:libclang.}
-## 
-## Write out the CXVirtualFileOverlay object to a char buffer.
-## 
-## \param options is reserved, always pass 0.
-## \param out_buffer_ptr pointer to receive the buffer pointer, which should be
-## disposed using clang_free().
-## \param out_buffer_size pointer to receive the buffer size.
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_VirtualFileOverlay_writeToBuffer*(a0 :CXVirtualFileOverlay; options :cuint; out_buffer_ptr :ptr cstring; out_buffer_size :ptr cuint) :CXErrorCode {.importc:"clang_VirtualFileOverlay_writeToBuffer", cdecl, dynlib:libclang.}
-## 
-## free memory allocated by libclang, such as the buffer returned by
-## CXVirtualFileOverlay() or clang_ModuleMapDescriptor_writeToBuffer().
-## 
-## \param buffer memory pointer to free.
-proc clang_free*(buffer :pointer) {.importc:"clang_free", cdecl, dynlib:libclang.}
-## 
-## Dispose a CXVirtualFileOverlay object.
-proc clang_VirtualFileOverlay_dispose*(a0 :CXVirtualFileOverlay) {.importc:"clang_VirtualFileOverlay_dispose", cdecl, dynlib:libclang.}
-type
-  struct_CXModuleMapDescriptorImpl* {.incompleteStruct.} = object
-  CXModuleMapDescriptorImpl* = struct_CXModuleMapDescriptorImpl
-## 
-## Object encapsulating information about a module.modulemap file.
-type CXModuleMapDescriptor* = ptr struct_CXModuleMapDescriptorImpl
-## 
-## Create a CXModuleMapDescriptor object.
-## Must be disposed with clang_ModuleMapDescriptor_dispose().
-## 
-## \param options is reserved, always pass 0.
-proc clang_ModuleMapDescriptor_create*(options :cuint) :CXModuleMapDescriptor {.importc:"clang_ModuleMapDescriptor_create", cdecl, dynlib:libclang.}
-## 
-## Sets the framework module name that the module.modulemap describes.
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_ModuleMapDescriptor_setFrameworkModuleName*(a0 :CXModuleMapDescriptor; name :cstring) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_setFrameworkModuleName", cdecl, dynlib:libclang.}
-## 
-## Sets the umbrella header name that the module.modulemap describes.
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_ModuleMapDescriptor_setUmbrellaHeader*(a0 :CXModuleMapDescriptor; name :cstring) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_setUmbrellaHeader", cdecl, dynlib:libclang.}
-## 
-## Write out the CXModuleMapDescriptor object to a char buffer.
-## 
-## \param options is reserved, always pass 0.
-## \param out_buffer_ptr pointer to receive the buffer pointer, which should be
-## disposed using clang_free().
-## \param out_buffer_size pointer to receive the buffer size.
-## \returns 0 for success, non-zero to indicate an error.
-proc clang_ModuleMapDescriptor_writeToBuffer*(a0 :CXModuleMapDescriptor; options :cuint; out_buffer_ptr :ptr cstring; out_buffer_size :ptr cuint) :CXErrorCode {.importc:"clang_ModuleMapDescriptor_writeToBuffer", cdecl, dynlib:libclang.}
-## 
-## Dispose a CXModuleMapDescriptor object.
-proc clang_ModuleMapDescriptor_dispose*(a0 :CXModuleMapDescriptor) {.importc:"clang_ModuleMapDescriptor_dispose", cdecl, dynlib:libclang.}
 ## 
 ## Installs error handler that prints error message to stderr and calls abort().
 ## Replaces currently installed error handler (if any).

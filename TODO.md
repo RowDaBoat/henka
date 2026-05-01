@@ -6,7 +6,7 @@
 - [x] Union pragma — `{.union.}` for C union types (slate codegen renders TypeObject.keyword as pragma, henka converter sets keyword + dispatches CXCursor_UnionDecl)
 - [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
 - [x] `sanitizer` callback — separate `Sanitizer` callback runs after renamer in `addRenamed`. Default dedup-underscores and adds `priv` prefix for `_` names. User can override or compose.
-- [ ] Relative header paths in pragmas — butcher computed `relativePath(rootDir)` for header pragmas instead of just `lastPathPart`
+- [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
 - [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
@@ -30,6 +30,7 @@
 - [ ] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — butcher used `UncheckedArray` which is more idiomatic Nim for C's `T[]` parameters
 - [ ] `volatile`/`restrict` qualifier stripping — libclang usually resolves these but may not always
 - [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
+- [ ] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
 
 
 ## Architecture

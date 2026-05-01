@@ -41,6 +41,7 @@ proc clang_Cursor_getBriefCommentText*(cursor: CXCursor): CXString {.importc, dy
 proc clang_disposeIndex*(index: CXIndex) {.importc, dynlib: libclang, cdecl.}
 proc clang_disposeTranslationUnit*(unit: CXTranslationUnit) {.importc, dynlib: libclang, cdecl.}
 proc clang_Cursor_isMacroFunctionLike*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
+proc clang_Cursor_isVariadic*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
 # C++ query procs
 proc clang_CXXMethod_isStatic*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
 proc clang_CXXMethod_isConst*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
