@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import join, startsWith, find
+from std/strutils import join, startsWith, find, contains
 # @deps slate
 import slate/ast as astTF
 # @deps henka
@@ -80,6 +80,45 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   result = CXChildVisit_Continue.cint
 
 
+proc emitUnnamedInnerType*(conv: var Converter, innerCursor: CXCursor, parentName: string, fieldIndex: int, isUnion: bool): astTF.Id =
+  let syntheticName = parentName & "_unnamed" & $fieldIndex
+  let labelKind = if isUnion: UnionType else: StructType
+  let typeName = conv.addRenamed(labelKind, syntheticName)
+
+  var innerCtx = ChildCtx(conv: addr conv, name: syntheticName)
+  discard clang_visitChildren(
+    innerCursor,
+    proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
+      if clang_getCursorKind(child) == CXCursor_FieldDecl:
+        let ctx         = cast[ptr ChildCtx](data)
+        let rawName     = child.spelling
+        let fieldLabel  = if rawName.len > 0: rawName else: ctx.conv[].unnamedFieldNamer(ctx.name, ctx.ids.len)
+        let fieldName   = ctx.conv[].addRenamed(Field, fieldLabel)
+        let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        ctx.ids.add bindingId
+      return CXChildVisit_Continue.cint
+    ,
+    addr innerCtx
+  )
+
+  var firstField: Option[astTF.Id] = none(astTF.Id)
+  if innerCtx.ids.len > 0:
+    for idx in 0..<innerCtx.ids.len - 1:
+      conv.ast.data.bindings[innerCtx.ids[idx]].next = some(innerCtx.ids[idx + 1])
+    firstField = some(innerCtx.ids[0])
+
+  let pragmaId = conv.structPragmas(syntheticName, isForward = false, isTagged = false, isUnion = isUnion)
+  let keywordIdent = case isUnion
+    of on:  some(conv.addName("union"))
+    of off: none(astTF.Identifier)
+  let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(typeName), fields: firstField, pragmas: some(pragmaId), keyword: keywordIdent)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+
+  let renamedRef = conv.addRenamed(labelKind, syntheticName)
+  result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedRef)))
+
+
 proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: bool = false): cint =
   if name.len == 0 or ' ' in name:
     return CXChildVisit_Continue.cint
@@ -106,14 +145,50 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
   discard clang_visitChildren(
     cursor,
     proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
-      if clang_getCursorKind(child) == CXCursor_FieldDecl:
-        let ctx         = cast[ptr ChildCtx](data)
+      let ctx       = cast[ptr ChildCtx](data)
+      let childKind = clang_getCursorKind(child)
+
+      if childKind == CXCursor_StructDecl or childKind == CXCursor_UnionDecl:
+        let childIsUnion = childKind == CXCursor_UnionDecl
+        let childName = child.spelling
+        let isAnonymous = childName.contains("anonymous")
+        let isUnnamed = childName.contains("unnamed")
+
+        if isAnonymous:
+          discard clang_visitChildren(
+            child,
+            proc(innerChild: CXCursor, innerParent: CXCursor, innerData: pointer): cint {.cdecl.} =
+              if clang_getCursorKind(innerChild) == CXCursor_FieldDecl:
+                let innerCtx    = cast[ptr ChildCtx](innerData)
+                let rawName     = innerChild.spelling
+                let fieldLabel  = if rawName.len > 0: rawName else: innerCtx.conv[].unnamedFieldNamer(innerCtx.name, innerCtx.ids.len)
+                let fieldName   = innerCtx.conv[].addRenamed(Field, fieldLabel)
+                let fieldTypeId = innerCtx.conv[].convertType(clang_getCursorType(innerChild))
+                let bindingId   = innerCtx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+                innerCtx.ids.add bindingId
+              return CXChildVisit_Continue.cint
+            ,
+            data
+          )
+        elif isUnnamed:
+          let syntheticTypeId = ctx.conv[].emitUnnamedInnerType(child, ctx.name, ctx.ids.len, childIsUnion)
+          ctx.pendingTypeId = some(syntheticTypeId)
+        else:
+          discard ctx.conv[].toObject(child, childName, childIsUnion)
+
+      elif childKind == CXCursor_FieldDecl:
         let rawName     = child.spelling
         let fieldLabel  = if rawName.len > 0: rawName else: ctx.conv[].unnamedFieldNamer(ctx.name, ctx.ids.len)
         let fieldName   = ctx.conv[].addRenamed(Field, fieldLabel)
-        let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        let fieldTypeId = if ctx.pendingTypeId.isSome:
+          let pending = ctx.pendingTypeId.get
+          ctx.pendingTypeId = none(astTF.Id)
+          pending
+        else:
+          ctx.conv[].convertType(clang_getCursorType(child))
+        let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
         ctx.ids.add bindingId
+
       return CXChildVisit_Continue.cint
     ,
     addr ctx

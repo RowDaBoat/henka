@@ -55,7 +55,8 @@ type Converter* = object
   valueMapper*       : ValueMapper
 
 type ChildCtx* = object
-  conv*  :ptr Converter
-  ids*   :seq[astTF.Id]
-  name*  :system.string
+  conv*           :ptr Converter
+  ids*            :seq[astTF.Id]
+  name*           :system.string
+  pendingTypeId*  :Option[astTF.Id]
 

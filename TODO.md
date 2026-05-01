@@ -7,12 +7,12 @@
 - [ ] Duplicate enum value handling — C allows duplicate values in enums, Nim doesn't. Butcher generated `template` workarounds for duplicates
 - [x] `sanitizer` callback — separate `Sanitizer` callback runs after renamer in `addRenamed`. Default dedup-underscores and adds `priv` prefix for `_` names. User can override or compose.
 - [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
-- [ ] Nested structs/unions/enums — records containing inner type declarations should generate separate types and reference them from parent fields
+- [x] Nested structs/unions/enums — named inner types emitted as standalone, unnamed get synthetic `ParentName_unnamedN`, anonymous flatten into parent
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 - [ ] Two-pass generation: collect all types first into a `type` block, then emit procs/vars — 
       gives proper ordering and avoids interleaved type/proc output. This should solve forward declarations.
-- [ ] Fix unnamed structs
+- [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 
 
 ## Other v2 tasks
@@ -30,7 +30,7 @@
 - [ ] `IncompleteArray` maps to `ptr T` instead of `UncheckedArray[T]` — butcher used `UncheckedArray` which is more idiomatic Nim for C's `T[]` parameters
 - [ ] `volatile`/`restrict` qualifier stripping — libclang usually resolves these but may not always
 - [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
-- [ ] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
+- [x] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
 
 
 ## Architecture
@@ -48,7 +48,7 @@
 - [ ] Test with GLFW headers
 - [ ] Test with stb_image and other stb headers
 - [ ] Test with godot-cpp: verify generated bindings compile against Godot engine
-- [ ] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
+- [x] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
