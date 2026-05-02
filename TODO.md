@@ -37,6 +37,7 @@
 
 ## Other v2 tasks
 - [x] Per-module statement chain tracking — chain pointers reset and stitched per module in generator loop
+- [x] `size_t` resolves to `cint` — was missing `#include <stddef.h>` in test header. clang needs the typedef visible to report `size_t` correctly.
 - [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
