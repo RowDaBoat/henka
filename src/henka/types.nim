@@ -106,6 +106,8 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
     named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
   elif ' ' in named:
     return conv.add_primitive("pointer")
+  else:
+    named = conv.sanitizer(named)
 
   result = conv.add_primitive(named)
 

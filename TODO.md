@@ -52,12 +52,13 @@
 ## Testing
 - [x] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
 - [x] Test with GLFW headers
-- [ ] Test with stb_image and other stb headers (11/20 pass `nim check`)
+- [ ] Test with stb_image and other stb headers (14/20 pass `nim check`)
   - [x] stb_image — generates, compiles, runs
+  - [x] Double underscores in type references now sanitized — `stbtt__buf` → `stbtt_buf` (fixed via sanitizer in `toObject` else branch)
   - [ ] `extern` macro values break 3 headers (stb_herringbone_wang_tile, stb_sprintf, stb_voxel_render)
-  - [ ] Double underscores in type spellings not sanitized — `stbtt__buf` invalid in Nim (stb_truetype, stb_image_resize2)
-  - [ ] Forward reference ordering — types used before defined (stb_ds, stb_rect_pack, stb_hexwave)
+  - [ ] Forward reference ordering — types used before defined (stb_ds)
   - [ ] Type name used as const value — `stb_textedit` macro expands to type name
+  - [ ] `short` in macro value — stb_truetype const uses C type as value
 - [x] Test with OpenGL headers — gl.h/glext.h/glcorearb.h all pass `nim check` (20K lines total). Requires user callbacks for: type name collisions (`_t` suffix), khronos type mappings, C literal suffixes (`ull`→`'u64`), calling convention macro filtering
 - [x] Test with raylib headers — 1279 lines, passes `nim check`, compiles and links against libraylib.a
   - [ ] Color macro constants (`CLITERAL(Color){...}`) need manual override — C compound literals have no Nim equivalent
@@ -89,7 +90,7 @@
   - [ ] `llu`/`ull` suffix variants on hex literals — `0xFFull`, `1llu`
   - [ ] `ptr void` from typedef-to-void pointer (`ecs_flagsn_t`)
 - [ ] Test with qu3e (C++ physics) — 205 lines, 1 error: forward reference (`q3BodyType` enum used before defined). Macro constants use `r32()` cast wrapper and `FLT_MAX`
-- [ ] Test with clay — 492 lines generated, only 5 errors. Blocked by double underscore in type references (`Clay__SizingType`). Macro-heavy API (designated initializers, comma operators) but most are function-like and correctly skipped
+- [ ] Test with clay — 456 lines generated, 1 error: `Clay_RenderData` redefinition (forward declaration not replaced). Double underscore type references fixed. Macro-heavy API (designated initializers, comma operators) but most are function-like and correctly skipped.
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
