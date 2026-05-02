@@ -17,7 +17,7 @@
 - [x] Two-pass generation / statement chain reorder — types now emit to a separate chain from procs/consts, stitched together at render time. Types always appear first in output. Fixes dearimgui `ImVector` ordering
 - [x] Duplicate type alias from typedef + enum — dearimgui `typedef int ImGuiWindowFlags;` and `enum ImGuiWindowFlags_ {}` both produce `ImGuiWindowFlags` alias. Fixed with `seenTypedefs` set tracking sanitized Nim names
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
-- [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
+- [x] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 - [x] Remove `clang/api.nim` from git and make `clang/minimal.nim` the default — flip the `when defined` switch so minimal is imported by default and `api.nim` is only used when `clang_selfhosted` is defined. Selfhost regenerates `api.nim` on demand.
 
 ## v2 Converter Bugs
