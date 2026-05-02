@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith, endsWith, replace
+from std/strutils import startsWith, endsWith, replace, toUpperAscii, contains
 # @deps henka
 import ./common
 
@@ -95,11 +95,19 @@ proc stripCSuffix*(value: system.string): system.string =
   while idx < value.len:
     if value[idx] in {'0'..'9'} or (value[idx] == '0' and idx + 1 < value.len and value[idx + 1] in {'x', 'X'}):
       var numEnd = idx
-      while numEnd < value.len and value[numEnd] in {'0'..'9', 'a'..'f', 'A'..'F', 'x', 'X'}:
+      while numEnd < value.len and value[numEnd] in {'0'..'9', 'a'..'f', 'A'..'F', 'x', 'X', '.'}:
         numEnd += 1
-      result.add value[idx..<numEnd]
-      while numEnd < value.len and value[numEnd] in {'L', 'l', 'U', 'u'}:
+      let numStr = value[idx..<numEnd]
+      var suffix = ""
+      while numEnd < value.len and value[numEnd] in {'L', 'l', 'U', 'u', 'F', 'f'}:
+        suffix.add value[numEnd]
         numEnd += 1
+      result.add numStr
+      let upper = suffix.toUpperAscii
+      if "ULL" in upper:       result.add "'u64"
+      elif "LL" in upper:      result.add "'i64"
+      elif "UL" in upper:      result.add "'u64"
+      elif "U" in upper:       result.add "'u32"
       idx = numEnd
     else:
       result.add value[idx]
@@ -117,6 +125,7 @@ proc defaultValueMapper*(value: system.string): system.string=
 
   result = result.stripCSuffix
   result = result.replace("<<", "shl").replace(">>", "shr")
+  result = result.replace("|", "or").replace("&", "and").replace("~", "not")
 
 proc defaultPragmaOverride*(
   kind: LabelKind,
