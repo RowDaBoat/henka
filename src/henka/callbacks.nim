@@ -59,7 +59,7 @@ const standardTypeMappings *:seq[(system.string, system.string)]= @[
   ("uint32_t",  "uint32"),
   ("uint64_t",  "uint64"),
   ("va_list",   "pointer"),
-  ("wchar_t",   "Utf32Char"),
+  ("wchar_t",   "cuint"),
 ]
 
 
