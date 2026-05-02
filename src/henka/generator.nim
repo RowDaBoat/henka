@@ -47,7 +47,7 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 
       return CXChildVisit_Continue.cint
 
-  if name.len > 0 and kind notin {CXCursor_Namespace, CXCursor_CXXMethod, CXCursor_StructDecl, CXCursor_UnionDecl, CXCursor_ClassDecl, CXCursor_ClassTemplate}:
+  if name.len > 0 and kind notin {CXCursor_Namespace, CXCursor_CXXMethod, CXCursor_StructDecl, CXCursor_UnionDecl, CXCursor_ClassDecl, CXCursor_ClassTemplate, CXCursor_TypedefDecl, CXCursor_TypeAliasDecl}:
     if name in conv[].seenSymbols:
       return CXChildVisit_Continue.cint
 
@@ -120,6 +120,7 @@ proc generate*(
     seenStructs       : initTable[system.string, (astTF.Id, astTF.Id)](),
     seenEnums         : initHashSet[system.string](),
     seenSymbols       : initHashSet[system.string](),
+    seenTypedefs      : initHashSet[system.string](),
     renamer           : renamer,
     sanitizer         : sanitizer,
     isCpp             : isCpp,
@@ -165,11 +166,13 @@ proc generate*(
     conv.headerFile = inputFile
     conv.tu = unit
     conv.module = astTF.Id(moduleIdx)
-    conv.lastStatement  = none(astTF.Id)
-    conv.firstTypeStmt  = none(astTF.Id)
-    conv.lastTypeStmt   = none(astTF.Id)
-    conv.firstOtherStmt = none(astTF.Id)
-    conv.lastOtherStmt  = none(astTF.Id)
+    conv.lastStatement   = none(astTF.Id)
+    conv.firstAliasStmt  = none(astTF.Id)
+    conv.lastAliasStmt   = none(astTF.Id)
+    conv.firstObjectStmt = none(astTF.Id)
+    conv.lastObjectStmt  = none(astTF.Id)
+    conv.firstOtherStmt  = none(astTF.Id)
+    conv.lastOtherStmt   = none(astTF.Id)
 
     if conv.linkMode == LinkMode.dynlib and moduleIdx == 0 and conv.dynlibName.len > 0:
       let nameIdent = conv.addName(conv.dynlibName)
@@ -183,12 +186,16 @@ proc generate*(
     discard clang_visitChildren(rootCursor, visitor, addr conv)
     clang_disposeTranslationUnit(unit)
 
-    # Stitch chains: types first, then others
-    if conv.lastTypeStmt.isSome and conv.firstOtherStmt.isSome:
-      conv.linkAfter(conv.lastTypeStmt.get, conv.firstOtherStmt.get)
+    # Stitch chains: aliases → objects → others
+    if conv.lastAliasStmt.isSome and conv.firstObjectStmt.isSome:
+      conv.linkAfter(conv.lastAliasStmt.get, conv.firstObjectStmt.get)
+    let lastType = if conv.lastObjectStmt.isSome: conv.lastObjectStmt elif conv.lastAliasStmt.isSome: conv.lastAliasStmt else: none(astTF.Id)
+    if lastType.isSome and conv.firstOtherStmt.isSome:
+      conv.linkAfter(lastType.get, conv.firstOtherStmt.get)
     conv.ast.data.modules[moduleIdx].body =
-      if conv.firstTypeStmt.isSome: conv.firstTypeStmt
-      elif conv.firstOtherStmt.isSome: conv.firstOtherStmt
+      if   conv.firstAliasStmt.isSome:  conv.firstAliasStmt
+      elif conv.firstObjectStmt.isSome: conv.firstObjectStmt
+      elif conv.firstOtherStmt.isSome:  conv.firstOtherStmt
       else: none(astTF.Id)
 
   # Render each module

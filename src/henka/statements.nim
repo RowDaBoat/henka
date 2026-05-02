@@ -22,23 +22,31 @@ proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   of astTF.sBranch      : previous.branch.next      = some(nextId)
   conv.ast.data.statements[previousId] = previous
 
-proc isTypeStatement(kind: astTF.StatementKind): bool =
-  kind in {astTF.sType, astTF.sAlias}
+proc isObjectType(conv: Converter, stmt: astTF.Statement): bool =
+  if stmt.kind != astTF.sType: return false
+  let typeKind = conv.ast.data.types[stmt.`type`.id].kind
+  typeKind == astTF.tObject
 
 proc add_statement_chained*(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.} =
   let stmtId = conv.ast.add_statement(statement)
 
-  if statement.kind.isTypeStatement:
-    if conv.lastTypeStmt.isSome:
-      conv.linkAfter(conv.lastTypeStmt.get, stmtId)
-    if conv.firstTypeStmt.isNone:
-      conv.firstTypeStmt = some(stmtId)
-    conv.lastTypeStmt = some(stmtId)
+  case statement.kind
+  of astTF.sType:
+    if conv.isObjectType(statement):
+      if conv.lastObjectStmt.isSome: conv.linkAfter(conv.lastObjectStmt.get, stmtId)
+      if conv.firstObjectStmt.isNone: conv.firstObjectStmt = some(stmtId)
+      conv.lastObjectStmt = some(stmtId)
+    else:
+      if conv.lastAliasStmt.isSome: conv.linkAfter(conv.lastAliasStmt.get, stmtId)
+      if conv.firstAliasStmt.isNone: conv.firstAliasStmt = some(stmtId)
+      conv.lastAliasStmt = some(stmtId)
+  of astTF.sAlias:
+    if conv.lastAliasStmt.isSome: conv.linkAfter(conv.lastAliasStmt.get, stmtId)
+    if conv.firstAliasStmt.isNone: conv.firstAliasStmt = some(stmtId)
+    conv.lastAliasStmt = some(stmtId)
   else:
-    if conv.lastOtherStmt.isSome:
-      conv.linkAfter(conv.lastOtherStmt.get, stmtId)
-    if conv.firstOtherStmt.isNone:
-      conv.firstOtherStmt = some(stmtId)
+    if conv.lastOtherStmt.isSome: conv.linkAfter(conv.lastOtherStmt.get, stmtId)
+    if conv.firstOtherStmt.isNone: conv.firstOtherStmt = some(stmtId)
     conv.lastOtherStmt = some(stmtId)
 
   result = stmtId
@@ -71,6 +79,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
       let pragmaId = conv.chainPragmas(anonPairs)
       let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(typeName), pragmas: some(pragmaId))))
       conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
+      conv.seenTypedefs.incl conv.sanitizer(conv.renamer(Typedef, name))
 
       return CXChildVisit_Continue.cint
 
@@ -79,6 +88,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let aliasName = conv.addRenamed(Typedef, name)
   let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetId)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
+  conv.seenTypedefs.incl conv.sanitizer(conv.renamer(Typedef, name))
 
   result = CXChildVisit_Continue.cint
 
@@ -342,7 +352,8 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   # Clean alias: WGPUFoo = enum_WGPUFoo
   # Skip if a typedef with the same sanitized name already exists (e.g. dearimgui pattern:
   # `typedef int ImGuiWindowFlags_;` + `enum ImGuiWindowFlags_ {}` both produce `ImGuiWindowFlags`)
-  if name notin conv.seenSymbols:
+  let cleanAlias = conv.sanitizer(conv.renamer(Typedef, name))
+  if cleanAlias notin conv.seenTypedefs:
     let cleanName    = conv.addRenamed(Typedef, name)
     let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
     let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))

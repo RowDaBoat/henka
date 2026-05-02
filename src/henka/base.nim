@@ -40,10 +40,13 @@ type Converter* = object
   seenStructs*       : Table[system.string, (astTF.Id, astTF.Id)]
   seenEnums*         : HashSet[system.string]
   seenSymbols*       : HashSet[system.string]
+  seenTypedefs*      : HashSet[system.string]
   renamer*           : Renamer
   lastStatement*     : Option[astTF.Id]
-  firstTypeStmt*     : Option[astTF.Id]
-  lastTypeStmt*      : Option[astTF.Id]
+  firstAliasStmt*    : Option[astTF.Id]
+  lastAliasStmt*     : Option[astTF.Id]
+  firstObjectStmt*   : Option[astTF.Id]
+  lastObjectStmt*    : Option[astTF.Id]
   firstOtherStmt*    : Option[astTF.Id]
   lastOtherStmt*     : Option[astTF.Id]
   isCpp*             : bool
