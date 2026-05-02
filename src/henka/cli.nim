@@ -15,14 +15,19 @@ type CliConfig = object
     usage: "..."
   .} : string
 
-  nimout {.
-    help: "Output the generated Nim bindings to this path (default: stdout)",
-    usage: "file"
+  inpath {.
+    help: "Input path to find headers (default: .)",
+    usage: "dir"
+  .} : string
+
+  outpath {.
+    help: "Output path for the generated Nim bindings (default: the in-path)",
+    usage: "dir"
   .} : string
 
   cpp {.
     help: "Compile using clang++",
-    usage: ""
+    usage
   .} : bool
 
   std {.
@@ -48,19 +53,28 @@ type CliConfig = object
 
 proc run* =
   var cliquet = initCliquet(CliConfig())
-  let rest = cliquet.parseOptions(commandLineParams())
-  let config = cliquet.config()
-  var usage = cliquet.generateUsage() & " header.h [... last_header.h]"
+  var headers = cliquet.parseOptions(commandLineParams())
+  let config  = cliquet.config()
+  var usage   = cliquet.generateUsage() & " header.h [... last_header.h]"
 
   if config.help:
     echo usage & "\n" & cliquet.generateHelp()
     quit(0)
 
-  if rest.len != 1 or rest[0].len == 0:
+  if headers.len == 0:
     echo usage
     quit(1)
 
-  let heaeder = rest[0]
+  var inpath = "."
+  if config.inpath != "":
+    inPath = config.inpath
+
+  var outPath = inPath
+  if (config.outpath != ""):
+    outPath = config.outpath
+
+  headers = headers.mapIt(inpath / it)
+
   var extraArgs = config.clangargs.split()
   extraArgs.add config.incl.mapIt("-I" & it)
   extraArgs.add config.def.mapIt("-D" & it)
@@ -68,10 +82,13 @@ proc run* =
   if config.std != "":
     extraArgs.add "-std=" & config.std
 
-  let isCpp = config.cpp or heaeder.splitFile.ext in [".hpp", ".hxx", ".h++", ".hh"]
-  let output = generate(heaeder, extraArgs, isCpp, config.includeDir)
+  let cppExt = [".hpp", ".hxx", ".h++", ".hh"]
+  let isCpp  = config.cpp and headers.anyIt(it.splitFile.ext in cppExt)
+  let output = generate(headers, extraArgs, isCpp)
 
-  echo output
-  let outFile = heaeder.changeFileExt(".nim")
-  outFile.writeFile(output)
-  echo "\nWrote: ", outFile
+  for module in output.modules:
+    let relPath = module.path.relativePath(inpath)
+    let nimPath = outPath / relPath.changeFileExt(".nim")
+    createDir(nimPath.parentDir)
+    nimPath.writeFile(module.definitions)
+    echo "Wrote ", nimPath

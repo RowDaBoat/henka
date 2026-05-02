@@ -226,4 +226,3 @@ proc generate*(
   result = case generated.modules.len > 0
     of true:  generated.modules[0].definitions
     of false: ""
-

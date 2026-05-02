@@ -6,5 +6,4 @@ generated
 selfhost
 !selfhost.nim
 **/clang/api.nim
-generator
-
+src/henka/generator
