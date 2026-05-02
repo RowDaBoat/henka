@@ -8,8 +8,13 @@
 - [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
 - [x] Nested structs/unions/enums — named inner types emitted as standalone, unnamed get synthetic `ParentName_unnamedN`, anonymous flatten into parent
 - [x] Variadic function support — detect `clang_Cursor_isVariadic` and emit `{.varargs.}` pragma
-- [x] Forward declarations — full definitions replace incomplete types in-place via `seenStructs` table keyed by type ID
-- [ ] Two-pass generation: types before procs/consts — dearimgui bindings fail to compile because forward-declared types (`ImVector`, `ImDrawIdx`) are used before they're defined. Need to collect all types into one block first, then emit consts/procs
+- [x] Forward declarations — full definitions replace incomplete types in-place via `seenStructs` table keyed by type ID and module ID
+- [x] Forward declaration replacement for C++ class templates — `toClassTemplate` now replaces incomplete types with full definitions, same as `toObject`
+- [x] Multi-module source buffer corruption — replacement types now switch `conv.module` to original module before `collectFields` and `buildObjectType`, so all source writes go to the correct module buffer
+- [x] Seq reallocation bug in type replacement — `types[id] = buildType()` could corrupt `types[id]` if `buildType` grew the seq. Fixed by evaluating RHS into a local before assigning
+- [x] Comments attached to statements — doc comments now use the `comment` field on `StatementType`/`StatementProcedure` etc. instead of separate `sComment` statement nodes. Prerequisite for statement chain reordering
+- [x] `seenSymbols` blocking forward declaration replacement for `ClassDecl`/`ClassTemplate` — added to exclusion set so second visits reach `toClass`/`toClassTemplate`
+- [ ] Two-pass generation / statement chain reorder — dearimgui `ImVector` is used before defined (not forward-declared, just late in header). Need to reorder statement chain: types first, then consts, then procs
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 - [x] Remove `clang/api.nim` from git and make `clang/minimal.nim` the default — flip the `when defined` switch so minimal is imported by default and `api.nim` is only used when `clang_selfhosted` is defined. Selfhost regenerates `api.nim` on demand.
@@ -23,6 +28,7 @@
 - [x] `volatile`/`restrict` qualifier stripping — libclang already resolves these, no henka changes needed
 - [x] Standard C macro values (`UINT32_MAX`, `SIZE_MAX`, `NAN`, etc.) not mapped to Nim equivalents — added `ValueMapper` callback with `defaultValueMapper`
 - [x] Type resolver (`toObject` in types.nim) calls `conv.renamer` directly, bypassing `addRenamed` and the sanitizer — produces unsanitized names like `struct__CXChildVisitResult` with double underscores
+- [x] `toEnum` also bypassed sanitizer — `conv.renamer(EnumType, name)` used directly without `addRenamed`, producing trailing underscores (e.g. `enum_ImGuiWindowFlags_`)
 - [x] The `passthrough` pragma for `__attribute__`/`_Pragma` macros — now emits `sPassthrough` statements instead of `sComment`, distinguishable from doc comments by downstream tooling
 - [x] Godot-cpp: `UNSUPPORTED_118` from `CXType_Auto` on template edge cases (`MIN`, `MAX`, `CLAMP`) — mapped `CXType_Auto` to `auto` primitive
 - [x] Godot-cpp: template specializations in parameter types (`Ref<InputEvent>`) — hack: `add_primitive` replaces `<>`→`[]` in type names. Works but should use proper generic type AST nodes

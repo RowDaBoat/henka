@@ -279,7 +279,8 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
     let (existingTypeId, originalModule) = conv.seenStructs[name]
     let savedModule = conv.module
     conv.module = originalModule
-    conv.ast.data.types[existingTypeId] = conv.buildClassTemplate(cursor, name, false)
+    let replacementType = conv.buildClassTemplate(cursor, name, false)
+    conv.ast.data.types[existingTypeId] = replacementType
     conv.module = savedModule
     return CXChildVisit_Continue.cint
 

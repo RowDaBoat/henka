@@ -207,7 +207,8 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
     if fieldIds.len == 0:
       conv.module = savedModule
       return CXChildVisit_Continue.cint
-    conv.ast.data.types[existingTypeId] = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward = false)
+    let replacementType = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward = false)
+    conv.ast.data.types[existingTypeId] = replacementType
     conv.module = savedModule
     return CXChildVisit_Continue.cint
 
