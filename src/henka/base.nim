@@ -1,5 +1,5 @@
 # @deps std
-from std/options import Option, none, some, isSome
+from std/options import Option, none, some, isSome, isNone, get
 from std/sets import HashSet, initHashSet, incl, contains
 from std/tables import Table, initTable, `[]=`, `[]`, hasKey, contains
 # @deps slate
@@ -7,7 +7,7 @@ import slate/ast as astTF
 # @deps henka
 import ./clang
 
-export Option, none, some, isSome
+export Option, none, some, isSome, isNone, get
 export HashSet, initHashSet, incl, sets.contains
 export Table, initTable, `[]=`, `[]`, hasKey, tables.contains
 
@@ -42,6 +42,10 @@ type Converter* = object
   seenSymbols*       : HashSet[system.string]
   renamer*           : Renamer
   lastStatement*     : Option[astTF.Id]
+  firstTypeStmt*     : Option[astTF.Id]
+  lastTypeStmt*      : Option[astTF.Id]
+  firstOtherStmt*    : Option[astTF.Id]
+  lastOtherStmt*     : Option[astTF.Id]
   isCpp*             : bool
   linkMode*          : LinkMode
   dynlibName*        : system.string

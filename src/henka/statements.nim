@@ -6,33 +6,42 @@ import slate/ast as astTF
 import ./[clang, common, comments, pragmas, types]
 
 
+proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
+  var previous = conv.ast.data.statements[previousId]
+  case previous.kind
+  of astTF.sVariable    : previous.variable.next    = some(nextId)
+  of astTF.sType        : previous.`type`.next      = some(nextId)
+  of astTF.sAlias       : previous.alias.next       = some(nextId)
+  of astTF.sProcedure   : previous.procedure.next   = some(nextId)
+  of astTF.sComment     : previous.comment.next     = some(nextId)
+  of astTF.sImport      : previous.`import`.next    = some(nextId)
+  of astTF.sPassthrough : previous.passthrough.next = some(nextId)
+  of astTF.sPragma      : previous.pragma.next      = some(nextId)
+  of astTF.sExpression  : previous.expression.next  = some(nextId)
+  of astTF.sKeyword     : previous.keyword.next     = some(nextId)
+  of astTF.sBranch      : previous.branch.next      = some(nextId)
+  conv.ast.data.statements[previousId] = previous
+
+proc isTypeStatement(kind: astTF.StatementKind): bool =
+  kind in {astTF.sType, astTF.sAlias}
+
 proc add_statement_chained*(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.} =
-  let statement_id = conv.ast.add_statement(statement)
+  let stmtId = conv.ast.add_statement(statement)
 
-  if conv.lastStatement.isSome:
-    let previous_id = conv.lastStatement.get
-    var previous    = conv.ast.data.statements[previous_id]
+  if statement.kind.isTypeStatement:
+    if conv.lastTypeStmt.isSome:
+      conv.linkAfter(conv.lastTypeStmt.get, stmtId)
+    if conv.firstTypeStmt.isNone:
+      conv.firstTypeStmt = some(stmtId)
+    conv.lastTypeStmt = some(stmtId)
+  else:
+    if conv.lastOtherStmt.isSome:
+      conv.linkAfter(conv.lastOtherStmt.get, stmtId)
+    if conv.firstOtherStmt.isNone:
+      conv.firstOtherStmt = some(stmtId)
+    conv.lastOtherStmt = some(stmtId)
 
-    case previous.kind
-    of astTF.sVariable    : previous.variable.next    = some(statement_id)
-    of astTF.sType        : previous.`type`.next      = some(statement_id)
-    of astTF.sAlias       : previous.alias.next       = some(statement_id)
-    of astTF.sProcedure   : previous.procedure.next   = some(statement_id)
-    of astTF.sComment     : previous.comment.next     = some(statement_id)
-    of astTF.sImport      : previous.`import`.next    = some(statement_id)
-    of astTF.sPassthrough : previous.passthrough.next = some(statement_id)
-    of astTF.sPragma      : previous.pragma.next      = some(statement_id)
-    of astTF.sExpression  : previous.expression.next  = some(statement_id)
-    of astTF.sKeyword     : previous.keyword.next     = some(statement_id)
-    of astTF.sBranch      : previous.branch.next      = some(statement_id)
-    conv.ast.data.statements[previous_id] = previous
-
-  conv.lastStatement = some(statement_id)
-
-  if not conv.ast.data.modules[conv.module].body.isSome:
-    conv.ast.data.modules[conv.module].body = some(statement_id)
-
-  result = statement_id
+  result = stmtId
 
 
 proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =

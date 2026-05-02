@@ -165,7 +165,11 @@ proc generate*(
     conv.headerFile = inputFile
     conv.tu = unit
     conv.module = astTF.Id(moduleIdx)
-    conv.lastStatement = none(astTF.Id)
+    conv.lastStatement  = none(astTF.Id)
+    conv.firstTypeStmt  = none(astTF.Id)
+    conv.lastTypeStmt   = none(astTF.Id)
+    conv.firstOtherStmt = none(astTF.Id)
+    conv.lastOtherStmt  = none(astTF.Id)
 
     if conv.linkMode == LinkMode.dynlib and moduleIdx == 0 and conv.dynlibName.len > 0:
       let nameIdent = conv.addName(conv.dynlibName)
@@ -178,6 +182,14 @@ proc generate*(
     let rootCursor = clang_getTranslationUnitCursor(unit)
     discard clang_visitChildren(rootCursor, visitor, addr conv)
     clang_disposeTranslationUnit(unit)
+
+    # Stitch chains: types first, then others
+    if conv.lastTypeStmt.isSome and conv.firstOtherStmt.isSome:
+      conv.linkAfter(conv.lastTypeStmt.get, conv.firstOtherStmt.get)
+    conv.ast.data.modules[moduleIdx].body =
+      if conv.firstTypeStmt.isSome: conv.firstTypeStmt
+      elif conv.firstOtherStmt.isSome: conv.firstOtherStmt
+      else: none(astTF.Id)
 
   # Render each module
   var nimOut = Output(modules: @[])

@@ -14,7 +14,8 @@
 - [x] Seq reallocation bug in type replacement — `types[id] = buildType()` could corrupt `types[id]` if `buildType` grew the seq. Fixed by evaluating RHS into a local before assigning
 - [x] Comments attached to statements — doc comments now use the `comment` field on `StatementType`/`StatementProcedure` etc. instead of separate `sComment` statement nodes. Prerequisite for statement chain reordering
 - [x] `seenSymbols` blocking forward declaration replacement for `ClassDecl`/`ClassTemplate` — added to exclusion set so second visits reach `toClass`/`toClassTemplate`
-- [ ] Two-pass generation / statement chain reorder — dearimgui `ImVector` is used before defined (not forward-declared, just late in header). Need to reorder statement chain: types first, then consts, then procs
+- [x] Two-pass generation / statement chain reorder — types now emit to a separate chain from procs/consts, stitched together at render time. Types always appear first in output. Fixes dearimgui `ImVector` ordering
+- [ ] Duplicate type alias from typedef + enum — dearimgui `typedef int ImGuiWindowFlags_;` and `enum ImGuiWindowFlags_ {}` both produce `ImGuiWindowFlags` alias after trailing underscore stripping. Need dedup in `toEnum` clean alias
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
 - [x] Remove `clang/api.nim` from git and make `clang/minimal.nim` the default — flip the `when defined` switch so minimal is imported by default and `api.nim` is only used when `clang_selfhosted` is defined. Selfhost regenerates `api.nim` on demand.
