@@ -25,7 +25,7 @@ const features = [
 ]
 
 suite "Henka should support":
-  for feature in features:  
+  for feature in features:
     test feature:
       let workdir = baseDir/feature
       let bindingsSource = generate(workdir/header)
