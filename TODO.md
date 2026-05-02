@@ -66,11 +66,11 @@
   - [ ] `va_list` type not mapped — requires user `typeMapper` to map to `pointer`
   - [ ] Visibility macros (`RLAPI`, `RMAPI`) expand to `extern` — need filtering
   - [ ] Float suffix `f` in macro values (`3.14f`) not stripped
-- [ ] Test with Vulkan headers — 14434 lines generated from vulkan_core.h, triangle renders with manual fixes
-  - [ ] Union typedef aliases emit as `incompleteStruct` instead of aliasing the union — `VkClearValue`, `VkClearColorValue` etc. need manual `= union_Vk*` fixup (12 types)
-  - [ ] Deprecated macro aliases collide under Nim case-insensitivity — `VK_KHR_MAINTENANCE1` vs `VK_KHR_MAINTENANCE_1` (6 macros)
-  - [ ] Enum value collisions — `VK_COLORSPACE_SRGB_NONLINEAR_KHR` vs `VK_COLOR_SPACE_SRGB_NONLINEAR_KHR` (2 values)
-  - [ ] Video codec types (`StdVideoH264*`, `StdVideoH265*`) undeclared — from `vulkan_video_codec_*.h` not included (19 types, need stubs or include)
+- [ ] Test with Vulkan headers — 13885 lines generated from vulkan_core.h, triangle renders with manual fixes
+  - [x] Union typedef aliases — fixed by `union ` prefix strip in `toAlias` (all 12 types resolved)
+  - [x] Video codec types — resolved with stub types prepended to output (19 types)
+  - [x] Deprecated macro aliases — skipped via `symbolFilter` (6 macros)
+  - [ ] Nim case-insensitive enum value collisions — 3 remaining: `VK_PIPELINE_CACHE_HEADER_VERSION_ONE` vs `VkPipelineCacheHeaderVersionOne`, `VK_COLORSPACE_SRGB_NONLINEAR_KHR` vs `VkColorSpaceSrgbNonlinearKHR`, `VK_DEVICE_FAULT_VENDOR_BINARY_HEADER_VERSION_ONE_EXT` vs `VkDeviceFaultVendorBinaryHeaderVersionOneEXT`. `symbolFilter` doesn't reach individual enum members — needs automatic collision detection
   - [x] Khronos type mappings, C literal suffixes, calling convention macros — handled by user callbacks
 - [x] Test with SDL2/SDL3 headers — 15K lines generated from SDL.h, compiles and renders with manual fixups
   - [ ] Nim case-insensitive collisions between consts and types/procs (`SDL_QUIT`/`SDL_Quit`, `SDL_HAPTICCONSTANT`/`SDL_HapticConstant`, etc.)
