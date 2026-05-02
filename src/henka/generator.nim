@@ -47,7 +47,7 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 
       return CXChildVisit_Continue.cint
 
-  if name.len > 0 and kind != CXCursor_Namespace and kind != CXCursor_CXXMethod and kind != CXCursor_StructDecl and kind != CXCursor_UnionDecl:
+  if name.len > 0 and kind notin {CXCursor_Namespace, CXCursor_CXXMethod, CXCursor_StructDecl, CXCursor_UnionDecl, CXCursor_ClassDecl, CXCursor_ClassTemplate}:
     if name in conv[].seenSymbols:
       return CXChildVisit_Continue.cint
 

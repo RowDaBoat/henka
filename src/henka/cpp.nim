@@ -222,9 +222,7 @@ proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   return CXChildVisit_Continue.cint
 
 
-proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
-  if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
-  if name in conv.seenStructs: return CXChildVisit_Continue.cint
+proc buildClassTemplate(conv :var Converter; cursor :CXCursor; name :string; isForward :bool) :Type =
   let className = conv.addName(name)
   # Collect template type parameters
   var templateCtx = ChildCtx(conv: addr conv)
@@ -242,23 +240,53 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
       conv.ast.data.bindings[templateCtx.ids[idx]].next = some(templateCtx.ids[idx + 1])
     firstGeneric = some(templateCtx.ids[0])
   # Collect fields
-  var fieldCtx = ChildCtx(conv: addr conv)
+  var firstField :Option[astTF.Id]= none(astTF.Id)
+  if not isForward:
+    var fieldCtx = ChildCtx(conv: addr conv)
+    discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
+      if clang_getCursorKind(child) == CXCursor_FieldDecl:
+        let ctx         = cast[ptr ChildCtx](data)
+        let fieldName   = ctx.conv[].addRenamed(Field, child.spelling)
+        let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        ctx.ids.add bindingId
+      return CXChildVisit_Continue.cint
+    , addr fieldCtx)
+    if fieldCtx.ids.len > 0:
+      for idx in 0..<fieldCtx.ids.len - 1:
+        conv.ast.data.bindings[fieldCtx.ids[idx]].next = some(fieldCtx.ids[idx + 1])
+      firstField = some(fieldCtx.ids[0])
+  let pragmaId = conv.classPragmas(cursor, isForward)
+  result = Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, generics: firstGeneric, pragmas: some(pragmaId)))
+
+
+proc hasFields(conv :var Converter; cursor :CXCursor) :bool =
+  var found = false
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
     if clang_getCursorKind(child) == CXCursor_FieldDecl:
-      let ctx         = cast[ptr ChildCtx](data)
-      let fieldName   = ctx.conv[].addRenamed(Field, child.spelling)
-      let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-      let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
-      ctx.ids.add bindingId
+      cast[ptr bool](data)[] = true
     return CXChildVisit_Continue.cint
-  , addr fieldCtx)
-  var firstField :Option[astTF.Id]= none(astTF.Id)
-  if fieldCtx.ids.len > 0:
-    for idx in 0..<fieldCtx.ids.len - 1:
-      conv.ast.data.bindings[fieldCtx.ids[idx]].next = some(fieldCtx.ids[idx + 1])
-    firstField = some(fieldCtx.ids[0])
-  let pragmaId = conv.classPragmas(cursor, false)
-  let typeId   = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, generics: firstGeneric, pragmas: some(pragmaId))))
+  , addr found)
+  result = found
+
+
+proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
+
+  let isForward = not conv.hasFields(cursor)
+
+  if name in conv.seenStructs:
+    if isForward:
+      return CXChildVisit_Continue.cint
+    let (existingTypeId, originalModule) = conv.seenStructs[name]
+    let savedModule = conv.module
+    conv.module = originalModule
+    conv.ast.data.types[existingTypeId] = conv.buildClassTemplate(cursor, name, false)
+    conv.module = savedModule
+    return CXChildVisit_Continue.cint
+
+  let objectType = conv.buildClassTemplate(cursor, name, isForward)
+  let typeId = conv.ast.add_type(objectType)
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
   conv.seenStructs[name] = (typeId, conv.module)
   return CXChildVisit_Continue.cint
