@@ -36,8 +36,6 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
   if name in conv.seenStructs: return CXChildVisit_Continue.cint
   let commentOpt = conv.add_comment(cursor)
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
   let className = conv.addName(name)
   # Collect public fields
   var ctx = ChildCtx(conv: addr conv)
@@ -105,7 +103,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     conv.ast.data.pragmas[inheritableId].next = some(pragmaId)
     finalPragma = inheritableId
   let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, pragmas: some(finalPragma), link: linkRange)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
   conv.seenStructs[name] = (typeId, conv.module)
   # Now emit methods, constructors, destructors
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=

@@ -52,9 +52,6 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
     # Anonymous struct typedef: emit as incompleteStruct object with the typedef name
     if ' ' in elabName:
       let commentOpt = conv.add_comment(cursor)
-      if commentOpt.isSome:
-        conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
       let typeName = conv.addRenamed(Typedef, name)
       var anonPairs :seq[(system.string, system.string)]= @[("incompleteStruct", "")]
 
@@ -64,18 +61,15 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
       let pragmaId = conv.chainPragmas(anonPairs)
       let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(typeName), pragmas: some(pragmaId))))
-      conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+      conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
 
       return CXChildVisit_Continue.cint
 
   let commentOpt = conv.add_comment(cursor)
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
   let targetId  = conv.convertType(underlying)
   let aliasName = conv.addRenamed(Typedef, name)
   let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetId)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
 
   result = CXChildVisit_Continue.cint
 
@@ -221,12 +215,9 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
   let isForward = fieldIds.len == 0
 
   let commentOpt = conv.add_comment(cursor)
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
   let objectType = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward)
   let typeId = conv.ast.add_type(objectType)
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
   conv.seenStructs[name] = (typeId, conv.module)
 
   if isTagged:
@@ -241,10 +232,6 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
 
 proc toScopedEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let commentOpt = conv.add_comment(cursor)
-
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
   let enumName = conv.addRenamed(EnumClass, name)
   var valueCtx = ChildCtx(conv: addr conv)
 
@@ -280,7 +267,7 @@ proc toScopedEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let typeId = conv.ast.add_type(Type(kind: astTF.tEnumeration, enumeration: TypeEnum(
     name: some(enumName), values: firstValue, pragmas: some(pragmaId)
   )))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
 
   return CXChildVisit_Continue.cint
 
@@ -314,14 +301,12 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
     return conv.toScopedEnum(cursor, name)
 
   let commentOpt = conv.add_comment(cursor)
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
 
   # C enum -> cint alias + constants (C enums are just integers)
   let enumIdent       = conv.addRenamed(EnumType, name)
   let cintTypeId      = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("cint"))))
   let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(enumIdent), target: cintTypeId)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId, comment: commentOpt)))
 
   # Generate constants for each enum value
   let sanitizedEnumName = conv.sanitizer(conv.renamer(EnumType, name))
@@ -386,16 +371,12 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
     pragmaId = varargsId
 
   let commentOpt = conv.add_comment(cursor)
-
-  if commentOpt.isSome:
-    conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentOpt.get)))
-
   let procId = conv.ast.add_procedure(Procedure(
     name: some(funcName), arguments: firstArg, returnType: retOpt,
     impure: true, pragmas: some(pragmaId)
   ))
 
-  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId)))
+  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId, comment: commentOpt)))
 
   return CXChildVisit_Continue.cint
 
