@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith, endsWith
+from std/strutils import startsWith, endsWith, replace
 # @deps henka
 import ./common
 
@@ -89,6 +89,22 @@ const standardValueMappings *:seq[(system.string, system.string)]= @[
   ("INFINITY",   "Inf"),
 ]
 
+proc stripCSuffix*(value: system.string): system.string =
+  result = ""
+  var idx = 0
+  while idx < value.len:
+    if value[idx] in {'0'..'9'} or (value[idx] == '0' and idx + 1 < value.len and value[idx + 1] in {'x', 'X'}):
+      var numEnd = idx
+      while numEnd < value.len and value[numEnd] in {'0'..'9', 'a'..'f', 'A'..'F', 'x', 'X'}:
+        numEnd += 1
+      result.add value[idx..<numEnd]
+      while numEnd < value.len and value[numEnd] in {'L', 'l', 'U', 'u'}:
+        numEnd += 1
+      idx = numEnd
+    else:
+      result.add value[idx]
+      idx += 1
+
 proc defaultValueMapper*(value: system.string): system.string=
   result = value
 
@@ -98,6 +114,9 @@ proc defaultValueMapper*(value: system.string): system.string=
 
     if result == mapping[0]:
       return mapping[1]
+
+  result = result.stripCSuffix
+  result = result.replace("<<", "shl").replace(">>", "shr")
 
 proc defaultPragmaOverride*(
   kind: LabelKind,
