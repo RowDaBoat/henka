@@ -3,9 +3,9 @@ from std/os import lastPathPart
 from std/strutils import startsWith
 # @deps clang
 when defined(clang_selfhosted):
-  import ./clang/api
+  import ./api
 else:
-  import ./clang/minimal as api
+  import ./minimal as api
 
 
 # Parse option constants  (FIX: Remove. Should not be needed)
