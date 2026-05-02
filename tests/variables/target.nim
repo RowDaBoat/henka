@@ -1,0 +1,3 @@
+import bindings
+
+echo a
