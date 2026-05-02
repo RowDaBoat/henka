@@ -40,12 +40,7 @@
 - [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
-- [ ] C++ struct methods — dearimgui: 1847 lines, passes `nim check`, 661 procs, 206 struct methods
-  - [x] C++ `StructDecl` now routes through `toClass` with `defaultPublic=true` in C++ mode
-  - [x] Forward declaration replacement in `toClass` — replaces incomplete types in-place
-  - [x] Nested C++ structs/classes/enums inside classes — hoisted via recursive `toClass`/`toEnum` in method visitor
-  - [ ] Some `ImVector<T>*` fields resolve to `pointer` instead of proper generic types — template type resolution is lossy
-  - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
+- [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] so/dll/dylib
 - [ ] write DSL for AST
@@ -88,6 +83,9 @@
   - [ ] C cast expressions in macro values (`((Sint8) 0x7F)`) — needs macro expression parser
   - [ ] Function-like macro calls in const values (`SDL_VERSIONNUM(...)`, `SDL_BUTTON(...)`) — not currently erroring (skipped or resolved by clang) but not properly converted
   - [ ] Compiler builtin macros (`__func__`, `__BYTE_ORDER`, `__GNUC__`) — not currently erroring but not properly handled
+- [ ] Test with dearimgui — 1847 lines, passes `nim check`, 661 procs, 206 struct methods
+  - [ ] Some `ImVector<T>*` fields resolve to `pointer` instead of proper generic types — template type resolution is lossy
+  - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
 - [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
 - [ ] Test with flecs — 2945 lines, 130 errors
   - [ ] `let` symbol requires initialization — 130 errors: consts with macro values that couldn't be parsed emit as `let` with no value
