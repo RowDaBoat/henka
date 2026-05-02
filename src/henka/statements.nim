@@ -340,10 +340,13 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   )
 
   # Clean alias: WGPUFoo = enum_WGPUFoo
-  let cleanName    = conv.addRenamed(Typedef, name)
-  let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
-  let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: cleanAliasId)))
+  # Skip if a typedef with the same sanitized name already exists (e.g. dearimgui pattern:
+  # `typedef int ImGuiWindowFlags_;` + `enum ImGuiWindowFlags_ {}` both produce `ImGuiWindowFlags`)
+  if name notin conv.seenSymbols:
+    let cleanName    = conv.addRenamed(Typedef, name)
+    let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
+    let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
+    conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: cleanAliasId)))
 
   return CXChildVisit_Continue.cint
 
