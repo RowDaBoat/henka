@@ -204,15 +204,21 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
   let typeSpelling = clang_getCursorType(cursor).typeSpelling
   let isTagged = typeSpelling.startsWith("struct ") or typeSpelling.startsWith("union ")
   let labelKind = if isUnion: UnionType else: StructType
-  let fieldIds = conv.collectFields(cursor, name)
-  let isForward = fieldIds.len == 0
 
   if name in conv.seenStructs:
-    if isForward:
+    let (existingTypeId, originalModule) = conv.seenStructs[name]
+    let savedModule = conv.module
+    conv.module = originalModule
+    let fieldIds = conv.collectFields(cursor, name)
+    if fieldIds.len == 0:
+      conv.module = savedModule
       return CXChildVisit_Continue.cint
-    let existingTypeId = conv.seenStructs[name]
     conv.ast.data.types[existingTypeId] = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward = false)
+    conv.module = savedModule
     return CXChildVisit_Continue.cint
+
+  let fieldIds = conv.collectFields(cursor, name)
+  let isForward = fieldIds.len == 0
 
   let commentOpt = conv.add_comment(cursor)
   if commentOpt.isSome:
@@ -221,7 +227,7 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
   let objectType = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward)
   let typeId = conv.ast.add_type(objectType)
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
-  conv.seenStructs[name] = typeId
+  conv.seenStructs[name] = (typeId, conv.module)
 
   if isTagged:
     let cleanName        = conv.addRenamed(Typedef, name)

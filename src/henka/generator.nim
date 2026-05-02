@@ -117,7 +117,7 @@ proc generate*(
     headerFile        : "",
     module            : 0,
     tu                : nil,
-    seenStructs       : initTable[system.string, astTF.Id](),
+    seenStructs       : initTable[system.string, (astTF.Id, astTF.Id)](),
     seenEnums         : initHashSet[system.string](),
     seenSymbols       : initHashSet[system.string](),
     renamer           : renamer,

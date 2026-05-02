@@ -106,7 +106,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     finalPragma = inheritableId
   let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, pragmas: some(finalPragma), link: linkRange)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
-  conv.seenStructs[name] = typeId
+  conv.seenStructs[name] = (typeId, conv.module)
   # Now emit methods, constructors, destructors
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
     let conv = cast[ptr Converter](data)
@@ -260,7 +260,7 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
   let pragmaId = conv.classPragmas(cursor, false)
   let typeId   = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, generics: firstGeneric, pragmas: some(pragmaId))))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId)))
-  conv.seenStructs[name] = typeId
+  conv.seenStructs[name] = (typeId, conv.module)
   return CXChildVisit_Continue.cint
 
 

@@ -37,7 +37,7 @@ type Converter* = object
   rootDir*           : system.string
   module*            : astTF.Id
   tu*                : CXTranslationUnit
-  seenStructs*       : Table[system.string, astTF.Id]
+  seenStructs*       : Table[system.string, (astTF.Id, astTF.Id)]
   seenEnums*         : HashSet[system.string]
   seenSymbols*       : HashSet[system.string]
   renamer*           : Renamer

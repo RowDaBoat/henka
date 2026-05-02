@@ -9,7 +9,7 @@ from std/strutils import endsWith
 # @deps henka
 import ../../henka
 
-const libclangInclude   {.strdefine.} = "/"/"usr"/"lib"/"llvm-18"/"include"
+const libclangInclude   {.strdefine.} = "/"/"usr"/"include"
 const libclangHeaderDir {.strdefine.} = libclangInclude/"clang-c"
 const outputFile                      = currentSourcePath().parentDir()/"api.nim"
 
