@@ -8,7 +8,6 @@ proc nim(action: string, file: string): bool =
     echo output
   result = exitCode == 0
 
-const header = "header.h"
 const bindings = "bindings.nim"
 const target = "target.nim"
 const baseDir = currentSourcePath().parentDir()
@@ -17,6 +16,7 @@ const check = "check"
 const run = "r"
 
 const c = "c"
+const cHeader = "header.h"
 const cFeatures = [
   (check, "empty_files"),
   (run,   "macros"),
@@ -39,19 +39,21 @@ suite "Henka C should support":
   for (action, feature) in cFeatures:
     test feature.replace("_", " "):
       let workdir = baseDir/c/feature
-      let bindingsSource = generate(workdir/header)
+      let bindingsSource = generate(workdir/cHeader)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
 
 const cpp = "cpp"
+const cppHeader = "header.hpp"
 const cppFeatures = [
   (check, "empty_files"),
+  (check, "big")
 ]
 
 suite "Henka C++ should support":
   for (action, feature) in cppFeatures:
     test feature.replace("_", " "):
       let workdir = baseDir/cpp/feature
-      let bindingsSource = generate(workdir/header, isCpp = true)
+      let bindingsSource = generate(workdir/cppHeader, isCpp = true)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
