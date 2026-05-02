@@ -7,4 +7,4 @@ selfhost
 !selfhost.nim
 **/clang/api.nim
 src/henka/generator
-tests/*/bindings.nim
+tests/**/bindings.nim
