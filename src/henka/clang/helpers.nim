@@ -2,11 +2,10 @@
 from std/os import lastPathPart
 from std/strutils import startsWith
 # @deps clang
-when defined(clang_minimal):
-  import ./minimal as api
+when defined(clang_selfhosted):
+  import ./clang/api
 else:
-  import ./api
-export api
+  import ./clang/minimal as api
 
 
 # Parse option constants  (FIX: Remove. Should not be needed)
