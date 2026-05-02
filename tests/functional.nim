@@ -1,4 +1,4 @@
-import std/[unittest, os, osproc, strformat]
+import std/[unittest, os, osproc, strformat, strutils]
 import ../src/henka/generator
 
 
@@ -16,8 +16,10 @@ const baseDir = currentSourcePath().parentDir()
 const check = "check"
 const run = "r"
 
-const features = [
+const c = "c"
+const cFeatures = [
   (check, "empty_files"),
+  (run,   "macros"),
   (check, "builtin_types"),
   (run,   "enums"),
   (check, "structs"),
@@ -27,14 +29,29 @@ const features = [
   (check, "pointers"),
   (check, "function_pointers"),
   (check, "typedefs"),
+  (check, "forward_declarations"),
   (check, "variables"),
-  (check, "functions")
+  (check, "functions"),
+  (check, "passthrough_pragmas")
 ]
 
-suite "Henka should support":
-  for (action, feature) in features:
-    test feature:
-      let workdir = baseDir/feature
+suite "Henka C should support":
+  for (action, feature) in cFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/c/feature
       let bindingsSource = generate(workdir/header)
+      (workdir/bindings).writeFile(bindingsSource)
+      check nim(action, workdir/target)
+
+const cpp = "cpp"
+const cppFeatures = [
+  (check, "empty_files"),
+]
+
+suite "Henka C++ should support":
+  for (action, feature) in cppFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/cpp/feature
+      let bindingsSource = generate(workdir/header, isCpp = true)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
