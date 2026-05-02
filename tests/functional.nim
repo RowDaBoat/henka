@@ -1,14 +1,12 @@
-import std/[unittest, os, osproc]
+import std/[unittest, os, osproc, strformat]
 import ../src/henka/generator
 
 
 proc nimcheck(file: string): bool =
-  let (output, exitCode) = execCmdEx("nim check " & quoteShell(file))
+  let (output, exitCode) = execCmdEx(&"nim check {quoteShell(file)}")
   if exitCode != 0:
     echo output
-    return false
-  return true
-
+  result = exitCode == 0
 
 const header = "header.h"
 const bindings = "bindings.nim"
@@ -17,11 +15,17 @@ const baseDir = currentSourcePath().parentDir()
 
 const features = [
   "emptyfile",
-  "types",
-  "variables",
-  "functions",
+  "builtin",
+  "enums",
+  "structs",
   "innerstructs",
-  "anonunions",
+  "unions",
+  "innerunions",
+  "pointers",
+  "function pointers",
+  "typedefs",
+  "variables",
+  "functions"
 ]
 
 suite "Henka should support":

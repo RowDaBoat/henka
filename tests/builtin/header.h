@@ -1,0 +1,10 @@
+void take_bool(_Bool b);
+void take_char(char c);
+void take_short(short s);
+void take_int(int i);
+void take_long(long l);
+void take_float(float f);
+void take_double(double d);
+void take_uint(unsigned int u);
+void take_pointer(void *p);
+void take_string(char *s);
