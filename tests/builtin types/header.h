@@ -1,3 +1,14 @@
+_Bool return_bool(void);
+char return_char(void);
+short return_short(void);
+int return_int(void);
+long return_long(void);
+float return_float(void);
+double return_double(void);
+unsigned int return_uint(void);
+void * return_void_ptr(void);
+char * return_string(void);
+
 void take_bool(_Bool b);
 void take_char(char c);
 void take_short(short s);
