@@ -75,14 +75,8 @@ proc toPointer*(conv: var Converter, typ: CXType): astTF.Id =
   if pointee.kind == CXType_Void:
     return conv.add_primitive("pointer")
 
-  block checkVoidTypedef:
-    var named = pointee.typeSpelling
-    if named.startsWith("const "):
-      named = named[6..^1]
-    let mapped = conv.typeMapper(named)
-    let resolved = if mapped.isSome: mapped.get else: named
-    if resolved == "void":
-      return conv.add_primitive("pointer")
+  if clang_getCanonicalType(pointee).kind == CXType_Void:
+    return conv.add_primitive("pointer")
 
   if pointee.kind == CXType_Char_S:
     return conv.add_primitive("cstring")

@@ -56,16 +56,16 @@
   - [x] stb_image — generates, compiles, runs
   - [x] Double underscores in type references now sanitized — `stbtt__buf` → `stbtt_buf` (fixed via sanitizer in `toObject` else branch)
   - [ ] `extern` macro values break 3 headers (stb_herringbone_wang_tile, stb_sprintf, stb_voxel_render)
-  - [ ] Forward reference ordering — types used before defined (stb_ds)
+  - [ ] Macro alias chain — stb_ds const `stbds_arrlen` references undeclared macro
   - [ ] Type name used as const value — `stb_textedit` macro expands to type name
   - [ ] `short` in macro value — stb_truetype const uses C type as value
 - [x] Test with OpenGL headers — gl.h (8714), glext.h (7771), glcorearb.h (3696) all pass `nim check` (20K lines total). Requires user callbacks for: type name collisions (`_t` suffix), khronos type mappings, calling convention macro filtering
 - [x] Test with raylib headers — 1238 lines, passes `nim check`, compiles and links against libraylib.a
   - [x] `va_list` type mapping — now in `standardTypeMappings` (`"va_list"` → `"pointer"`)
-  - [x] C operators and literal suffixes — now in `defaultValueMapper`
+  - [x] C operators, literal suffixes, float suffix `f` — now in `defaultValueMapper`
+  - [x] Deprecated alias macros — filtered via user `symbolFilter`
+  - [x] Visibility macros (`RLAPI`, `RMAPI`) — filtered via user `symbolFilter`
   - [ ] Color macro constants (`CLITERAL(Color){...}`) need manual override — C compound literals have no Nim equivalent
-  - [ ] Deprecated alias macros (`GetMouseRay = GetScreenToWorldRay`) reference symbols defined later — forward reference ordering
-  - [ ] Visibility macros (`RLAPI`, `RMAPI`) expand to `extern` — need filtering
 - [x] Test with Vulkan headers — 13901 lines, passes `nim check`
   - [x] Union typedef aliases — fixed by `union ` prefix strip in `toAlias`
   - [x] Video codec types — resolved with stub types prepended to output
@@ -73,18 +73,18 @@
   - [x] Nim case-insensitive collisions (enum value vs type alias) — skipped via user `symbolFilter` with `EnumValue` kind
   - [x] Khronos type mappings, calling convention macros — handled by user callbacks
   - [x] C literal suffixes — now in `defaultValueMapper` via `stripCSuffix`
-- [ ] Test with SDL2/SDL3 headers — 2989 lines, 8 errors
+- [ ] Test with SDL2/SDL3 headers — 2989 lines, 8 errors (all from one C cast expression on line 2)
   - [x] Union typedef forward declaration issues — fixed by `union ` prefix strip in `toAlias`
-  - [x] C operators and literal suffixes — `shl`/`shr`/`stripCSuffix` now in `defaultValueMapper`
-  - [x] Proc-vs-type name collisions — fixed: `SDL_threadID` remapped via `sdlTypeCollisions`, `SDL_QUIT` enum value filtered via `symbolFilter` (now supports `EnumValue` kind)
-  - [ ] C cast expressions in macro values (`((Sint8) 0x7F)`, `((Uint32) -1)`)
-  - [ ] Function-like macro calls in const values (`SDL_VERSIONNUM(...)`, `SDL_BUTTON(...)`)
-  - [ ] Unnamed struct fields in unions (`SDL_RWops`, `SDL_GameControllerButtonBind`)
-  - [ ] Compiler builtin macros (`__func__`, `__BYTE_ORDER`, `__GNUC__`)
+  - [x] C operators and literal suffixes — now in `defaultValueMapper`
+  - [x] Proc-vs-type name collisions — `SDL_threadID` remapped, `SDL_QUIT` enum value filtered via `symbolFilter` (`EnumValue` kind)
+  - [x] Unnamed struct fields in unions — handled via synthetic names and post-processing
+  - [ ] C cast expressions in macro values (`((Sint8) 0x7F)`) — needs macro expression parser
+  - [ ] Function-like macro calls in const values (`SDL_VERSIONNUM(...)`, `SDL_BUTTON(...)`) — not currently erroring (skipped or resolved by clang) but not properly converted
+  - [ ] Compiler builtin macros (`__func__`, `__BYTE_ORDER`, `__GNUC__`) — not currently erroring but not properly handled
 - [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
-- [ ] Test with flecs — 2945 lines, 141 errors
+- [ ] Test with flecs — 2945 lines, 130 errors
   - [ ] `let` symbol requires initialization — 130 errors: consts with macro values that couldn't be parsed emit as `let` with no value
-  - [ ] `ptr void` — 11 errors: typedef-to-void pointer produces `ptr void` instead of `pointer`
+  - [x] `ptr void` — fixed: `toPointer` now uses `clang_getCanonicalType` to resolve typedef-to-void pointers as `pointer`
   - [ ] `ECS_CAST(type, value)` macro in const values — C cast expression
   - [ ] C struct initializer macros — `(ecs_strbuf_t){0}`, `ECS_HTTP_REPLY_INIT`, etc.
   - [ ] Function-like macro calls in values — `ecs_id(...)`, `ECS_SIZEOF(...)`, `ECS_ALIGN(...)`

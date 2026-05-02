@@ -54,6 +54,7 @@ proc clang_getSpecializedCursorTemplate*(cursor: CXCursor): CXCursor {.importc, 
 proc clang_getNumTemplateArguments*(cursor: CXCursor): cint {.importc, dynlib: libclang, cdecl.}
 proc clang_getCXXAccessSpecifier*(cursor: CXCursor): cint {.importc, dynlib: libclang, cdecl.}
 proc clang_isCursorDefinition*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
+proc clang_getCanonicalType*(typ: CXType): CXType {.importc, dynlib: libclang, cdecl.}
 const CX_CXXPublic*:    cint = 1
 const CX_CXXProtected*: cint = 2
 const CX_CXXPrivate*:   cint = 3
