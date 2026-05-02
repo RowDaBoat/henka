@@ -57,9 +57,11 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling
  
-    # Skip typedef that aliases same-named struct/enum (e.g. typedef struct Foo {} Foo)
+    # Skip typedef that aliases same-named struct/enum/union (e.g. typedef struct Foo {} Foo)
     if   elabName.startsWith("struct "):
       elabName = elabName[7..^1]
+    elif elabName.startsWith("union "):
+      elabName = elabName[6..^1]
     elif elabName.startsWith("enum "):
       elabName = elabName[5..^1]
 

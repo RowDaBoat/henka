@@ -90,7 +90,10 @@
   - [ ] `llu`/`ull` suffix variants on hex literals — `0xFFull`, `1llu`
   - [ ] `ptr void` from typedef-to-void pointer (`ecs_flagsn_t`)
 - [ ] Test with qu3e (C++ physics) — 205 lines, 1 error: forward reference (`q3BodyType` enum used before defined). Macro constants use `r32()` cast wrapper and `FLT_MAX`
-- [ ] Test with clay — 456 lines generated, 1 error: `Clay_RenderData` redefinition (forward declaration not replaced). Double underscore type references fixed. Macro-heavy API (designated initializers, comma operators) but most are function-like and correctly skipped.
+- [ ] Test with clay — 455 lines, passes `nim check`
+  - [x] Double underscore type references — fixed via sanitizer in `toObject` else branch
+  - [x] `Clay_RenderData` redefinition — `typedef union` same-name skip was missing `union ` prefix strip in `toAlias`
+  - [ ] Macro-heavy API — designated initializers, comma operators, function-like macros. Most are correctly skipped but not converted.
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
