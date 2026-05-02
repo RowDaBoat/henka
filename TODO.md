@@ -36,17 +36,20 @@
 
 
 ## Other v2 tasks
-- [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
-- [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
-- [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
-- [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
+- [x] Per-module statement chain tracking — chain pointers reset and stitched per module in generator loop
 - [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
-- [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
-- [ ] so/dll/dylib
-- [ ] write DSL for AST
-- [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
+- [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
+- [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
-- [ ] Per-module statement chain tracking for true multi-module output (currently all statements chain together, split by module.body)
+- [ ] write DSL for AST
+- [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
+- [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
+
+
+## Ergonomics (v2)
+- [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
+- [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
+- [ ] so/dll/dylib auto-resolution (current solution: `{.strdefine.}`)
 
 
 ## Testing
@@ -88,13 +91,13 @@
   - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
 - [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
 - [ ] Test with flecs — 2945 lines, 130 errors
-  - [ ] `let` symbol requires initialization — 130 errors: consts with macro values that couldn't be parsed emit as `let` with no value
   - [x] `ptr void` — fixed: `toPointer` now uses `clang_getCanonicalType` to resolve typedef-to-void pointers as `pointer`
+  - [x] `llu`/`ull` suffix variants on hex literals — now handled by `stripCSuffix` in `defaultValueMapper`
+  - [ ] `let` symbol requires initialization — 130 errors: consts with macro values that couldn't be parsed emit as `let` with no value
   - [ ] `ECS_CAST(type, value)` macro in const values — C cast expression
   - [ ] C struct initializer macros — `(ecs_strbuf_t){0}`, `ECS_HTTP_REPLY_INIT`, etc.
   - [ ] Function-like macro calls in values — `ecs_id(...)`, `ECS_SIZEOF(...)`, `ECS_ALIGN(...)`
   - [ ] Macro alias chains — `ECS_TAG_DECLARE = ECS_DECLARE`, `ecs_dbg = ecs_dbg_1`
-  - [x] `llu`/`ull` suffix variants on hex literals — now handled by `stripCSuffix` in `defaultValueMapper`
 - [ ] Test with qu3e (C++ physics) — source not present in bin/, needs re-cloning. Previously: 205 lines, 1 error (forward reference). Macro constants use `r32()` cast wrapper and `FLT_MAX`
 - [ ] Test with clay — 455 lines, passes `nim check`
   - [x] Double underscore type references — fixed via sanitizer in `toObject` else branch
