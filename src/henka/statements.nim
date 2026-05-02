@@ -302,6 +302,8 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
       proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
         if clang_getCursorKind(child) == CXCursor_EnumConstantDecl:
           let conv        = cast[ptr Converter](data)
+          if not conv[].symbolFilter(EnumValue, child.spelling):
+            return CXChildVisit_Continue.cint
           let valName     = conv[].addRenamed(EnumValue, child.spelling)
           let valNum      = clang_getEnumConstantDeclValue(child)
           let valLoc      = conv[].addSrc($valNum)
@@ -339,6 +341,8 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
     proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
       if clang_getCursorKind(child) == CXCursor_EnumConstantDecl:
         let ctx         = cast[ptr ChildCtx](data)
+        if not ctx.conv[].symbolFilter(EnumValue, child.spelling):
+          return CXChildVisit_Continue.cint
         let valName     = ctx.conv[].addRenamed(EnumValue, child.spelling)
         let valNum      = clang_getEnumConstantDeclValue(child)
         let valLoc      = ctx.conv[].addSrc($valNum)
