@@ -12,7 +12,7 @@
 - [ ] Two-pass generation: types before procs/consts — dearimgui bindings fail to compile because forward-declared types (`ImVector`, `ImDrawIdx`) are used before they're defined. Need to collect all types into one block first, then emit consts/procs
 - [x] Fix unnamed structs — unnamed fields get synthetic `ParentName_unnamedN` types, anonymous members flatten fields into parent
 - [ ] CLI entry point with proper argument parsing (`--help`, `--clangargs`, `--astout`, `--nimout`, etc.) using Cliquet.
-- [ ] Remove `clang/api.nim` from git and make `clang/minimal.nim` the default — flip the `when defined` switch so minimal is imported by default and `api.nim` is only used when `clang_selfhosted` is defined. Selfhost regenerates `api.nim` on demand.
+- [x] Remove `clang/api.nim` from git and make `clang/minimal.nim` the default — flip the `when defined` switch so minimal is imported by default and `api.nim` is only used when `clang_selfhosted` is defined. Selfhost regenerates `api.nim` on demand.
 
 ## v2 Converter Bugs
 - [x] Generated libclang bindings are missing CXTranslationUnit parse option constants — resolved: they're enum values, not macros; selfhost generates them correctly
