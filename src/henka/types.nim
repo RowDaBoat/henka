@@ -96,6 +96,8 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
 
   if named.startsWith("struct "):
     named = conv.sanitizer(conv.renamer(StructType, named[7..^1]))
+  elif named.startsWith("union "):
+    named = conv.sanitizer(conv.renamer(UnionType, named[6..^1]))
   elif named.startsWith("enum "):
     named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
   elif ' ' in named:

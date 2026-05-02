@@ -150,7 +150,13 @@ proc collectFields(conv: var Converter, cursor: CXCursor, name: string): seq[ast
         let isAnonymous = childName.contains("anonymous")
         let isUnnamed = childName.contains("unnamed")
 
-        if isAnonymous:
+        if isAnonymous and childIsUnion:
+          let syntheticTypeId = ctx.conv[].emitUnnamedInnerType(child, ctx.name, ctx.ids.len, childIsUnion)
+          let fieldLabel = ctx.conv[].unnamedFieldNamer(ctx.name, ctx.ids.len)
+          let fieldName  = ctx.conv[].addRenamed(Field, fieldLabel)
+          let bindingId  = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(syntheticTypeId)))
+          ctx.ids.add bindingId
+        elif isAnonymous:
           discard clang_visitChildren(
             child,
             proc(innerChild: CXCursor, innerParent: CXCursor, innerData: pointer): cint {.cdecl.} =

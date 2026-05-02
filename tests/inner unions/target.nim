@@ -13,5 +13,5 @@ c.a.i = 10
 c.a.f = 20.0
 
 var d: OuterD
-d.field0.i = 10
-d.field0.f = 20.0
+d.unnamed0.i = 10
+d.unnamed0.f = 20.0
