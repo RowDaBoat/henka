@@ -14,13 +14,13 @@ const target = "target.nim"
 const baseDir = currentSourcePath().parentDir()
 
 const features = [
-  "emptyfile",
-  "builtin",
+  "empty files",
+  "builtin types",
   "enums",
   "structs",
-  "innerstructs",
+  "inner structs",
   "unions",
-  "innerunions",
+  "inner unions",
   "pointers",
   "function pointers",
   "typedefs",
