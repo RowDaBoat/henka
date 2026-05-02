@@ -435,9 +435,16 @@ proc toVariable*(conv: var Converter, cursor: CXCursor, name: string): cint =
   if not evalResult.isNil:
     let evalKind = clang_EvalResult_getKind(evalResult)
     if evalKind == CXEval_Int:
-      let val     = clang_EvalResult_getAsLongLong(evalResult)
-      let valLoc  = conv.addSrc($val)
-      let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
+      let val        = clang_EvalResult_getAsLongLong(evalResult)
+      let isCharType = cursorType.kind in {CXType_Char_S, CXType_SChar, CXType_UChar}
+      let litKind = case isCharType
+        of true:  LiteralKind.char
+        of false: LiteralKind.integer
+      let valStr = case isCharType and val >= 32 and val < 127
+        of true:  "'" & $chr(val) & "'"
+        of false: $val
+      let valLoc  = conv.addSrc(valStr)
+      let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: litKind, value: valLoc)))
       valueOpt    = some(valExpr)
     elif evalKind == CXEval_Float:
       let val     = clang_EvalResult_getAsDouble(evalResult)
