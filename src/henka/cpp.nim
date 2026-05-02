@@ -32,13 +32,18 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
   result = (name, "\"#." & name & "(@)\"")
 
 
-proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic :bool = false) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
-  if name in conv.seenStructs: return CXChildVisit_Continue.cint
+  if name in conv.seenStructs:
+    # Check if existing is a forward declaration — if so, continue to replace it
+    let (existingTypeId, _) = conv.seenStructs[name]
+    let existingType = conv.ast.data.types[existingTypeId]
+    if existingType.kind == astTF.tObject and existingType.`object`.fields.isSome:
+      return CXChildVisit_Continue.cint
   let commentOpt = conv.add_comment(cursor)
   let className = conv.addName(name)
   # Collect public fields
-  var ctx = ChildCtx(conv: addr conv)
+  var ctx = ChildCtx(conv: addr conv, name: if defaultPublic: "public" else: "")
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
     let ctx = cast[ptr ChildCtx](data)
     let childKind = clang_getCursorKind(child)
@@ -102,8 +107,15 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     let inheritableId = conv.addPragma("inheritable")
     conv.ast.data.pragmas[inheritableId].next = some(pragmaId)
     finalPragma = inheritableId
-  let typeId = conv.ast.add_type(Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, pragmas: some(finalPragma), link: linkRange)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
+  let replacementType = Type(kind: astTF.tObject, `object`: TypeObject(name: some(className), fields: firstField, pragmas: some(finalPragma), link: linkRange))
+  var typeId :astTF.Id
+  if name in conv.seenStructs:
+    let (existingTypeId, _) = conv.seenStructs[name]
+    conv.ast.data.types[existingTypeId] = replacementType
+    typeId = existingTypeId
+  else:
+    typeId = conv.ast.add_type(replacementType)
+    conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
   conv.seenStructs[name] = (typeId, conv.module)
   # Now emit methods, constructors, destructors
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
@@ -113,6 +125,9 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     of CXCursor_Constructor : discard conv[].toConstructor(child, child.spelling)
     of CXCursor_Destructor  : discard conv[].toDestructor(child, child.spelling)
     of CXCursor_CXXMethod   : discard conv[].toMethod(child, child.spelling)
+    of CXCursor_StructDecl  : discard conv[].toClass(child, child.spelling, defaultPublic = true)
+    of CXCursor_ClassDecl   : discard conv[].toClass(child, child.spelling)
+    of CXCursor_EnumDecl    : discard conv[].toEnum(child, child.spelling)
     else                    : discard
     return CXChildVisit_Continue.cint
   , addr conv)

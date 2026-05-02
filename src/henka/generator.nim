@@ -55,7 +55,9 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 
   case kind
   of CXCursor_TypedefDecl      : return conv[].toAlias(cursor, name)
-  of CXCursor_StructDecl       : return conv[].toObject(cursor, name)
+  of CXCursor_StructDecl       :
+    if conv[].isCpp: return conv[].toClass(cursor, name, defaultPublic = true)
+    else:            return conv[].toObject(cursor, name)
   of CXCursor_UnionDecl        : return conv[].toObject(cursor, name, isUnion = true)
   of CXCursor_EnumDecl         : return conv[].toEnum(cursor, name)
   of CXCursor_FunctionDecl     : return conv[].toProcedure(cursor, name)

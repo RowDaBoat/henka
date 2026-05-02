@@ -39,8 +39,13 @@
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 - [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
-- [ ] Nim case-insensitive name collisions — `GLFW_CURSOR` (const) vs `GLFWcursor` (type) are the same in Nim. Caller must handle via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
-- [ ] C++ struct methods not generated — dearimgui structs with methods (e.g. `ImFontAtlas::GetTexDataAsRGBA32`) only emit fields, not methods. Only `class` goes through `toClass`; C++ structs with methods need the same treatment
+- [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
+- [ ] C++ struct methods — dearimgui: 1847 lines, passes `nim check`, 661 procs, 206 struct methods
+  - [x] C++ `StructDecl` now routes through `toClass` with `defaultPublic=true` in C++ mode
+  - [x] Forward declaration replacement in `toClass` — replaces incomplete types in-place
+  - [x] Nested C++ structs/classes/enums inside classes — hoisted via recursive `toClass`/`toEnum` in method visitor
+  - [ ] Some `ImVector<T>*` fields resolve to `pointer` instead of proper generic types — template type resolution is lossy
+  - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] so/dll/dylib
 - [ ] write DSL for AST
