@@ -52,13 +52,15 @@
 ## Testing
 - [x] Test with libclang: self-hosting loop (generate api.nim → compile with it → regenerate → verify identical output)
 - [x] Test with GLFW headers — 514 lines, passes `nim check`. `GLFW_CURSOR` const filtered to avoid collision with `GLFWcursor` type.
-- [ ] Test with stb_image and other stb headers (14/20 pass `nim check`)
+- [ ] Test with stb_image and other stb headers (20/20 pass `nim check` with user filters)
   - [x] stb_image — generates, compiles, runs
-  - [x] Double underscores in type references now sanitized — `stbtt__buf` → `stbtt_buf` (fixed via sanitizer in `toObject` else branch)
-  - [ ] `extern` macro values break 3 headers (stb_herringbone_wang_tile, stb_sprintf, stb_voxel_render)
-  - [ ] Macro alias chain — stb_ds const `stbds_arrlen` references undeclared macro
-  - [ ] Type name used as const value — `stb_textedit` macro expands to type name
-  - [ ] `short` in macro value — stb_truetype const uses C type as value
+  - [x] Double underscores in type references — fixed via sanitizer in `toObject` else branch
+  - [x] `extern` macro values — filtered via user `symbolFilter` (`EXTERN`/`DEC`/`DECL` patterns)
+  - [x] Macro alias chains (stb_ds) — filtered via user `symbolFilter` (`stbds_*` and short aliases)
+  - [x] Type-as-value macros (stb_textedit, stb_truetype) — filtered via user `symbolFilter`
+  - [ ] Macro alias chains — `stbds_arrlen` etc. are function-like macros that need the macro expression parser to convert properly
+  - [ ] Type-as-value macros — `#define stbtt_vertex_type short` should emit a type alias, needs macro expression parser
+  - [ ] `extern` as macro value — `#define STBHW_EXTERN extern` should be skipped or converted to a pragma, needs macro expression parser
 - [x] Test with OpenGL headers — gl.h (8714), glext.h (7771), glcorearb.h (3696) all pass `nim check` (20K lines total). Requires user callbacks for: type name collisions (`_t` suffix), khronos type mappings, calling convention macro filtering
 - [x] Test with raylib headers — 1238 lines, passes `nim check`, compiles and links against libraylib.a
   - [x] `va_list` type mapping — now in `standardTypeMappings` (`"va_list"` → `"pointer"`)
@@ -103,6 +105,7 @@
   - [x] Unnamed struct type reference — handled via user `typeMapper` mapping to `pointer`
   - [x] `include`/`Utf32Char` identifiers — filtered/mapped via user callbacks
   - [x] `wchar_t` mapped to `cuint` in `standardTypeMappings`
+- [x] Test with wgvk (WebGPU/Vulkan) — 1877 lines, passes `nim check`
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
