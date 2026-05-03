@@ -144,7 +144,7 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
 
 proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
   let retType = clang_getResultType(typ)
-  let retOpt  = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))
+  let retOpt  = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
   let argc    = clang_getNumArgTypes(typ)
   var firstArg: Option[astTF.Id] = none(astTF.Id)
   var argIds: seq[astTF.Id]      = @[]
@@ -153,7 +153,8 @@ proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
     let argType   = clang_getArgType(typ, idx.cuint)
     let argTypeId = conv.convertType(argType)
     let argName   = conv.addName("a" & $idx)
-    let bindingId = conv.ast.add_binding(Binding(name: some(argName), dataType: some(argTypeId), private: true))
+    let argTypeExpr = conv.ast.add_expression_type(argTypeId)
+    let bindingId = conv.ast.add_binding(Binding(name: some(argName), dataType: some(argTypeExpr), private: true))
     argIds.add bindingId
 
   if argIds.len > 0:

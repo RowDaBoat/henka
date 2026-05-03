@@ -54,7 +54,8 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
       let fieldLabel  = if rawName.len > 0: rawName else: ctx.conv[].unnamedFieldNamer("", ctx.ids.len)
       let fieldName   = ctx.conv[].addRenamed(Field, fieldLabel)
       let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-      let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+      let fieldTypeExpr = ctx.conv[].ast.add_expression_type(fieldTypeId)
+      let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeExpr)))
       ctx.ids.add bindingId
     return CXChildVisit_Continue.cint
   , addr ctx)
@@ -139,22 +140,24 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let isOperator = name.startsWith("operator")
   let funcType   = clang_getCursorType(cursor)
   let retType    = clang_getResultType(funcType)
-  let retOpt     = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))
+  let retOpt     = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
   # Build arguments
   let argc   = clang_Cursor_getNumArguments(cursor)
   var argIds :seq[astTF.Id]= @[]
   if not isStatic:
     let isConst      = clang_CXXMethod_isConst(cursor) != 0
     let parentCursor = clang_getCursorSemanticParent(cursor)
-    let parentTypeId = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentCursor.spelling), mutable: not isConst)))
-    let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeId), private: true))
+    let parentTypeId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentCursor.spelling), mutable: not isConst)))
+    let parentTypeExpr = conv.ast.add_expression_type(parentTypeId)
+    let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeExpr), private: true))
     argIds.add thisBinding
   for idx in 0..<argc:
     let arg       = clang_Cursor_getArgument(cursor, idx.cuint)
     let argName   = if arg.spelling.len > 0: arg.spelling else: "a" & $idx
     let argIdent  = conv.addRenamed(Parameter, argName)
     let argTypeId = conv.convertType(clang_getCursorType(arg))
-    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeId), private: true))
+    let argTypeExpr = conv.ast.add_expression_type(argTypeId)
+    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: true))
     argIds.add bindingId
   var firstArg :Option[astTF.Id]= none(astTF.Id)
   if argIds.len > 0:
@@ -193,6 +196,7 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
   let retTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName))))
+  let retTypeExpr  = conv.ast.add_expression_type(retTypeId)
   let argc = clang_Cursor_getNumArguments(cursor)
   var argIds :seq[astTF.Id]= @[]
   for idx in 0..<argc:
@@ -200,7 +204,8 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     let argName   = if arg.spelling.len > 0: arg.spelling else: "a" & $idx
     let argIdent  = conv.addRenamed(Parameter, argName)
     let argTypeId = conv.convertType(clang_getCursorType(arg))
-    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeId), private: true))
+    let argTypeExpr = conv.ast.add_expression_type(argTypeId)
+    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: true))
     argIds.add bindingId
   var firstArg :Option[astTF.Id]= none(astTF.Id)
   if argIds.len > 0:
@@ -212,7 +217,7 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let procId   = conv.ast.add_procedure(Procedure(
     name       : some(procName),
     arguments  : firstArg,
-    returnType : some(retTypeId),
+    returnType : some(retTypeExpr),
     impure     : true,
     pragmas    : some(pragmaId)))
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId)))
@@ -222,8 +227,9 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
 proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
-  let parentTypeId = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName), mutable: true)))
-  let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeId), private: true))
+  let parentTypeId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName), mutable: true)))
+  let parentTypeExpr = conv.ast.add_expression_type(parentTypeId)
+  let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeExpr), private: true))
   let pragmaId     = conv.destructorPragmas(cursor)
   let procName     = conv.addRenamed(Proc, conv.destructorName(parentName))
   let procId       = conv.ast.add_procedure(Procedure(
@@ -261,7 +267,8 @@ proc buildClassTemplate(conv :var Converter; cursor :CXCursor; name :string; isF
         let ctx         = cast[ptr ChildCtx](data)
         let fieldName   = ctx.conv[].addRenamed(Field, child.spelling)
         let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        let fieldTypeExpr = ctx.conv[].ast.add_expression_type(fieldTypeId)
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeExpr)))
         ctx.ids.add bindingId
       return CXChildVisit_Continue.cint
     , addr fieldCtx)
@@ -311,7 +318,7 @@ proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :c
   let qualified = cursor.qualifiedName
   let funcType = clang_getCursorType(cursor)
   let retType  = clang_getResultType(funcType)
-  let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))
+  let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
   # Collect template type parameters
   var genericCtx = ChildCtx(conv: addr conv)
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
@@ -335,7 +342,8 @@ proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :c
       let argName   = if child.spelling.len > 0: child.spelling else: "a" & $ctx.ids.len
       let argIdent  = ctx.conv[].addRenamed(Parameter, argName)
       let argTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-      let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeId), private: true))
+      let argTypeExpr = ctx.conv[].ast.add_expression_type(argTypeId)
+      let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: true))
       ctx.ids.add bindingId
     return CXChildVisit_Continue.cint
   , addr argCtx)

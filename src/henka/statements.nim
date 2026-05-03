@@ -112,7 +112,8 @@ proc emitUnnamedInnerType*(conv: var Converter, innerCursor: CXCursor, parentNam
         let fieldLabel  = if rawName.len > 0: rawName else: ctx.conv[].unnamedFieldNamer(ctx.name, ctx.ids.len)
         let fieldName   = ctx.conv[].addRenamed(Field, fieldLabel)
         let fieldTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        let fieldTypeExpr = ctx.conv[].ast.add_expression_type(fieldTypeId)
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeExpr)))
         ctx.ids.add bindingId
       return CXChildVisit_Continue.cint
     ,
@@ -154,7 +155,8 @@ proc collectFields(conv: var Converter, cursor: CXCursor, name: string): seq[ast
           let syntheticTypeId = ctx.conv[].emitUnnamedInnerType(child, ctx.name, ctx.ids.len, childIsUnion)
           let fieldLabel = ctx.conv[].unnamedFieldNamer(ctx.name, ctx.ids.len)
           let fieldName  = ctx.conv[].addRenamed(Field, fieldLabel)
-          let bindingId  = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(syntheticTypeId)))
+          let syntheticExpr = ctx.conv[].ast.add_expression_type(syntheticTypeId)
+          let bindingId  = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(syntheticExpr)))
           ctx.ids.add bindingId
         elif isAnonymous:
           discard clang_visitChildren(
@@ -166,7 +168,8 @@ proc collectFields(conv: var Converter, cursor: CXCursor, name: string): seq[ast
                 let fieldLabel  = if rawName.len > 0: rawName else: innerCtx.conv[].unnamedFieldNamer(innerCtx.name, innerCtx.ids.len)
                 let fieldName   = innerCtx.conv[].addRenamed(Field, fieldLabel)
                 let fieldTypeId = innerCtx.conv[].convertType(clang_getCursorType(innerChild))
-                let bindingId   = innerCtx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+                let fieldTypeExpr = innerCtx.conv[].ast.add_expression_type(fieldTypeId)
+                let bindingId   = innerCtx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeExpr)))
                 innerCtx.ids.add bindingId
               return CXChildVisit_Continue.cint
             ,
@@ -188,7 +191,8 @@ proc collectFields(conv: var Converter, cursor: CXCursor, name: string): seq[ast
           pending
         else:
           ctx.conv[].convertType(clang_getCursorType(child))
-        let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeId)))
+        let fieldTypeExpr = ctx.conv[].ast.add_expression_type(fieldTypeId)
+        let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(fieldName), dataType: some(fieldTypeExpr)))
         ctx.ids.add bindingId
 
       return CXChildVisit_Continue.cint
@@ -314,8 +318,9 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
           let valNum      = clang_getEnumConstantDeclValue(child)
           let valLoc      = conv[].addSrc($valNum)
           let valExpr     = conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
-          let cintTypeRef = conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv[].addName("cint"))))
-          let bindingId   = conv[].ast.add_binding(Binding(name: some(valName), dataType: some(cintTypeRef), value: some(valExpr)))
+          let cintTypeRef  = conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv[].addName("cint"))))
+          let cintTypeExpr = conv[].ast.add_expression_type(cintTypeRef)
+          let bindingId   = conv[].ast.add_binding(Binding(name: some(valName), dataType: some(cintTypeExpr), value: some(valExpr)))
           conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
         return CXChildVisit_Continue.cint
       ,
@@ -353,8 +358,9 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
         let valNum      = clang_getEnumConstantDeclValue(child)
         let valLoc      = ctx.conv[].addSrc($valNum)
         let valExpr     = ctx.conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
-        let enumTypeRef = ctx.conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: ctx.conv[].addName(ctx.name))))
-        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(valName), dataType: some(enumTypeRef), value: some(valExpr)))
+        let enumTypeRef  = ctx.conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: ctx.conv[].addName(ctx.name))))
+        let enumTypeExpr = ctx.conv[].ast.add_expression_type(enumTypeRef)
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(valName), dataType: some(enumTypeExpr), value: some(valExpr)))
         ctx.conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
       return CXChildVisit_Continue.cint
     ,
@@ -379,7 +385,7 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let funcName = conv.addRenamed(Proc, nimName)
   let funcType = clang_getCursorType(cursor)
   let retType  = clang_getResultType(funcType)
-  let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.convertType(retType))
+  let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
   let argc     = clang_Cursor_getNumArguments(cursor)
   var argIds :seq[astTF.Id]= @[]
 
@@ -388,7 +394,8 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
     let argName   = if arg.spelling.len > 0: arg.spelling else: "a" & $idx
     let argIdent  = conv.addRenamed(Parameter, argName)
     let argTypeId = conv.convertType(clang_getCursorType(arg))
-    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeId), private: true))
+    let argTypeExpr = conv.ast.add_expression_type(argTypeId)
+    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: true))
     argIds.add bindingId
 
   var firstArg :Option[astTF.Id]= none(astTF.Id)
@@ -457,7 +464,7 @@ proc toVariable*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let hasValue  = valueOpt.isSome
   let bindingId = conv.ast.add_binding(Binding(
     name     : some(varName),
-    dataType : some(varTypeId),
+    dataType : some(conv.ast.add_expression_type(varTypeId)),
     value    : valueOpt,
     runtime  : not (isConst and hasValue),
     mutable  : not isConst))
