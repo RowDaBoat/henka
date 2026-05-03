@@ -159,6 +159,7 @@ const CXType_RValueReference*         : cint = 104
 const CXType_Record*                  : cint = 105
 const CXType_Typedef*                 : cint = 107
 const CXType_FunctionProto*           : cint = 111
+const CXType_FunctionNoProto*         : cint = 110
 const CXType_ConstantArray*           : cint = 112
 const CXType_MemberPointer*           : cint = 117
 const CXType_IncompleteArray*         : cint = 114

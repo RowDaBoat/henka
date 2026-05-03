@@ -228,6 +228,7 @@ proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
     of CXType_Elaborated      : conv.toObject(typ)
     of CXType_Record          : conv.toObject(typ)
     of CXType_FunctionProto   : conv.toProcedure(typ)
+    of CXType_FunctionNoProto : conv.toProcedure(typ)
     of CXType_LValueReference : conv.toReference(typ)
     of CXType_RValueReference : conv.toReference(typ)
     of CXType_ConstantArray   : conv.toArray(typ)

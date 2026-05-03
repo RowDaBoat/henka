@@ -105,7 +105,13 @@
   - [x] Type block ordering — all type statements in one block, const aliases separate. Typedefs like `ImU32 = cuint` no longer break forward references.
   - [x] `ImVector<T>*` fields now resolve to proper generic types — fixed by clang Type API for template args
   - [x] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — correctly emit as `{.incompleteStruct.}` objects, used as `ptr` everywhere
-- [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
+- [ ] Test with godot-cpp — 51273 lines from single mega-header, 6 errors:
+  - [x] `CXType_FunctionNoProto` (kind 110) — `void (*)()` function pointers. Added to `convert_type` dispatch, same as `FunctionProto`
+  - [x] GDExtension C interface — 638 lines, passes `nim check` with zero filters
+  - [ ] `real_t` redefinition — `typedef float real_t` in C header collides with `using real_t = godot::real_t` in C++ namespace
+  - [ ] C++ namespace qualifiers leaking — `godot::real_t` appears as raw text in output
+  - [ ] `GDExtensionInitializationLevel` / `Callback` — cross-file types not resolved in single-file mode
+  - [ ] Cross-file import tracking — multi-file mode re-emits all included symbols per file
 - [ ] Test with flecs — 2945 lines, 130 errors
   - [x] `ptr void` — fixed: `toPointer` now uses `clang_getCanonicalType` to resolve typedef-to-void pointers as `pointer`
   - [x] `llu`/`ull` suffix variants on hex literals — now handled by `stripCSuffix` in `defaultValueMapper`
@@ -120,7 +126,7 @@
 - [ ] Test with clay — 455 lines, passes `nim check`
   - [x] Double underscore type references — fixed via sanitizer in `toObject` else branch
   - [x] `Clay_RenderData` redefinition — `typedef union` same-name skip was missing `union ` prefix strip in `toAlias`
-  - [ ] Macro-heavy API — designated initializers, comma operators, function-like macros. Most are correctly skipped but not converted.
+  - [ ] Macro-heavy API — designated initializers, variadic macros, compound literals, function-like macros. All silently skipped. This IS clay's primary API surface. Needs macro expression parser. Zero filters needed, passes `nim check`, but bindings are incomplete.
 - [x] Test with XCB headers — 3635 lines, passes `nim check`
   - [x] `L`/`U` suffix on integer literals — fixed via `stripCSuffix` in `defaultValueMapper`
 - [x] Test with X11 headers — 1692 lines, passes `nim check`
