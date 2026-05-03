@@ -21,7 +21,8 @@ const cFeatures = [
   (check, "empty_files"),
   (run,   "macros"),
   (check, "builtin_types"),
-  (run,   "enums"),
+  (run,   "enums_to_cint"),
+  (run,   "enums_to_enums"),
   (check, "structs"),
   (check, "inner_structs"),
   (run,   "unions"),
@@ -50,8 +51,6 @@ const cppHeader = "header.hpp"
 const cppFeatures = [
   (check, "empty_files"),
   (check, "big"),
-  #(check, "ordering_cpp_templates"),
-  #(check, "ordering_templates"),
   (check, "ordering_templates"),
   (check, "ordering_forward_templates"),
   (check, "template_generics"),
