@@ -135,7 +135,10 @@
   - [x] Unnamed struct type reference — handled via user `typeMapper` mapping to `pointer`
   - [x] `include`/`Utf32Char` identifiers — filtered/mapped via user callbacks
   - [x] `wchar_t` mapped to `cuint` in `standardTypeMappings`
-- [x] Test with wgvk (WebGPU/Vulkan) — 1877 lines, passes `nim check`
+- [x] Test with wgvk (WebGPU/Vulkan) — 1600 lines, passes `nim check` with zero errors
+  - [x] Self-referential type aliases — `typedef enum/struct X X` produced `X = X` after renamer stripped common prefix. Fixed: skip alias when renamed names match (both in `toAlias` and `toEnum`)
+  - [x] Type references not renamed — proc arg types used raw C names (`WGPUSurface`) instead of renamed names (`Surface`). Fixed: `toObject` else branch now applies renamer with `Typedef` kind
+  - [x] `toPrimitive2` now applies renamer for typedef type references
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 

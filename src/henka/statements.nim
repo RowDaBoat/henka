@@ -75,12 +75,22 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
       return CXChildVisit_Continue.cint
 
+  let renamedAlias = conv.sanitizer(conv.renamer(Typedef, name))
+  var targetSpelling = underlying.typeSpelling
+  if   targetSpelling.startsWith("struct "): targetSpelling = targetSpelling[7..^1]
+  elif targetSpelling.startsWith("union "):  targetSpelling = targetSpelling[6..^1]
+  elif targetSpelling.startsWith("enum "):   targetSpelling = targetSpelling[5..^1]
+  elif targetSpelling.startsWith("const "):  targetSpelling = targetSpelling[6..^1]
+  let renamedTarget = conv.sanitizer(conv.renamer(Typedef, targetSpelling))
+  if renamedAlias == renamedTarget:
+    return CXChildVisit_Continue.cint
+
   let commentOpt = conv.add_comment(cursor)
   let targetId  = conv.convertType(underlying)
   let aliasName = conv.addRenamed(Typedef, name)
   let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetId)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
-  conv.seenTypedefs.incl conv.sanitizer(conv.renamer(Typedef, name))
+  conv.seenTypedefs.incl renamedAlias
 
   result = CXChildVisit_Continue.cint
 
@@ -243,11 +253,14 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
   conv.seenStructs[name] = (typeId, conv.module)
 
   if isTagged:
-    let cleanName        = conv.addRenamed(Typedef, name)
-    let renamedStructRef = conv.addRenamed(labelKind, name)
-    let refTypeId        = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedStructRef)))
-    let aliasTypeId      = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
-    conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasTypeId)))
+    let cleanAlias       = conv.sanitizer(conv.renamer(Typedef, name))
+    let structAlias      = conv.sanitizer(conv.renamer(labelKind, name))
+    if cleanAlias != structAlias:
+      let cleanName        = conv.addRenamed(Typedef, name)
+      let renamedStructRef = conv.addRenamed(labelKind, name)
+      let refTypeId        = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedStructRef)))
+      let aliasTypeId      = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
+      conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasTypeId)))
 
   return CXChildVisit_Continue.cint
 
@@ -361,7 +374,7 @@ proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =
   # Skip if a typedef with the same sanitized name already exists (e.g. dearimgui pattern:
   # `typedef int ImGuiWindowFlags_;` + `enum ImGuiWindowFlags_ {}` both produce `ImGuiWindowFlags`)
   let cleanAlias = conv.sanitizer(conv.renamer(Typedef, name))
-  if cleanAlias notin conv.seenTypedefs:
+  if cleanAlias notin conv.seenTypedefs and cleanAlias != sanitizedEnumName:
     let cleanName    = conv.addRenamed(Typedef, name)
     let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
     let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))

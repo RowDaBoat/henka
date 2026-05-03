@@ -96,7 +96,8 @@ proc toPrimitive2*(conv: var Converter, typ: CXType): astTF.Id =
   if mapped.isSome:
     return conv.add_primitive(mapped.get)
 
-  result = conv.add_primitive(named)
+  let renamed = conv.sanitizer(conv.renamer(Typedef, named))
+  result = conv.add_primitive(renamed)
 
 
 proc toPointer*(conv: var Converter, typ: CXType): astTF.Id =
@@ -153,7 +154,7 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   elif ' ' in named:
     return conv.add_primitive("pointer")
   else:
-    named = conv.sanitizer(named)
+    named = conv.sanitizer(conv.renamer(Typedef, named))
 
   result = conv.add_primitive(named)
 
