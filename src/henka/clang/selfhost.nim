@@ -9,6 +9,11 @@ from std/strutils import endsWith
 # @deps henka
 import ../../henka
 
+const libclang {.strdefine.} =
+  when(defined(windows)): "libclang.dll"
+  elif(defined(macosx)):   gorgeEx("xcode-select -p").output & "/Toolchains/XcodeDefault.xctoolchain/usr/lib/libclang.dylib"
+  else:                   "libclang.so"
+
 const libclangInclude   {.strdefine.} = "/"/"usr"/"include"
 const libclangHeaderDir {.strdefine.} = libclangInclude/"clang-c"
 const outputFile                      = currentSourcePath().parentDir()/"api.nim"
@@ -53,7 +58,7 @@ when isMainModule:
     singleFileParse = false,
     linkMode        = LinkMode.dynlib,
     dynlibName      = "libclang",
-    dynlibPath      = "libclang.so"
+    dynlibPath      = libclang
   )
 
   var combined = ""

@@ -2,7 +2,10 @@
 #  Manually written libclang bindings
 #  Minimal features to support selfhosting libclang bindings with henka
 #_______________________________________
-const libclang {.strdefine.} = "libclang.so"
+const libclang {.strdefine.} =
+  when(defined(windows)): "libclang.dll"
+  elif(defined(macosx)):   gorgeEx("xcode-select -p").output & "/Toolchains/XcodeDefault.xctoolchain/usr/lib/libclang.dylib"
+  else:                   "libclang.so"
 
 type CXIndex*             = pointer
 type CXTranslationUnit*   = pointer
