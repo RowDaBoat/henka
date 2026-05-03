@@ -133,6 +133,22 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   elif named.startsWith("enum "):
     named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
   elif '<' in named:
+    let numArgs = clang_Type_getNumTemplateArguments(typ)
+    if numArgs > 0:
+      let baseName = named[0 ..< named.find('<')]
+      var firstExpr = none(astTF.Id)
+      var prevExpr = none(astTF.Id)
+      for argIdx in 0 ..< numArgs:
+        let argType = clang_Type_getTemplateArgumentAsType(typ, argIdx.cuint)
+        let argTypeId = conv.convertType(argType)
+        let exprId = conv.ast.add_expression_type(argTypeId)
+        if prevExpr.isSome:
+          conv.ast.data.expressions[prevExpr.get].`type`.next = some(exprId)
+        if firstExpr.isNone: firstExpr = some(exprId)
+        prevExpr = some(exprId)
+      return conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
+        name: conv.addName(baseName),
+        instantiation: firstExpr)))
     return conv.add_primitive(named)
   elif ' ' in named:
     return conv.add_primitive("pointer")

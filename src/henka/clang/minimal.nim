@@ -55,6 +55,8 @@ proc clang_getNumTemplateArguments*(cursor: CXCursor): cint {.importc, dynlib: l
 proc clang_getCXXAccessSpecifier*(cursor: CXCursor): cint {.importc, dynlib: libclang, cdecl.}
 proc clang_isCursorDefinition*(cursor: CXCursor): cuint {.importc, dynlib: libclang, cdecl.}
 proc clang_getCanonicalType*(typ: CXType): CXType {.importc, dynlib: libclang, cdecl.}
+proc clang_Type_getNumTemplateArguments*(typ: CXType): cint {.importc, dynlib: libclang, cdecl.}
+proc clang_Type_getTemplateArgumentAsType*(typ: CXType, index: cuint): CXType {.importc, dynlib: libclang, cdecl.}
 const CX_CXXPublic*:    cint = 1
 const CX_CXXProtected*: cint = 2
 const CX_CXXPrivate*:   cint = 3
