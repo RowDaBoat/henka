@@ -103,8 +103,8 @@
 - [x] Test with dearimgui — 1847 lines, passes `nim check`, 661 procs, 206 struct methods
   - [x] Template type resolution — fixed by using clang Type API for template args, types now resolve through `convertType`
   - [x] Type block ordering — all type statements in one block, const aliases separate. Typedefs like `ImU32 = cuint` no longer break forward references.
-  - [ ] Some `ImVector<T>*` fields resolve to `pointer` instead of proper generic types — template type resolution is lossy
-  - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
+  - [x] `ImVector<T>*` fields now resolve to proper generic types — fixed by clang Type API for template args
+  - [x] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — correctly emit as `{.incompleteStruct.}` objects, used as `ptr` everywhere
 - [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.
 - [ ] Test with flecs — 2945 lines, 130 errors
   - [x] `ptr void` — fixed: `toPointer` now uses `clang_getCanonicalType` to resolve typedef-to-void pointers as `pointer`
@@ -114,7 +114,9 @@
   - [ ] C struct initializer macros — `(ecs_strbuf_t){0}`, `ECS_HTTP_REPLY_INIT`, etc.
   - [ ] Function-like macro calls in values — `ecs_id(...)`, `ECS_SIZEOF(...)`, `ECS_ALIGN(...)`
   - [ ] Macro alias chains — `ECS_TAG_DECLARE = ECS_DECLARE`, `ecs_dbg = ecs_dbg_1`
-- [ ] Test with qu3e (C++ physics) — source not present in bin/, needs re-cloning. Previously: 205 lines, 1 error (forward reference). Macro constants use `r32()` cast wrapper and `FLT_MAX`
+- [x] Test with qu3e (C++ physics) — 358 lines, passes `nim check`. Only `Q3_SLEEP_ANGULAR` filtered (macro references non-const variable `q3PI`)
+  - [x] `FLT_MAX` → `high(cfloat)` — added `FLT_MAX`, `FLT_MIN`, `DBL_MAX`, `DBL_MIN` to `standardValueMappings`
+  - [x] `r32(literal)` type conversions — work natively as Nim type conversions since `r32` is a typedef alias
 - [ ] Test with clay — 455 lines, passes `nim check`
   - [x] Double underscore type references — fixed via sanitizer in `toObject` else branch
   - [x] `Clay_RenderData` redefinition — `typedef union` same-name skip was missing `union ` prefix strip in `toAlias`

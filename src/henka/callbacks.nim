@@ -87,6 +87,10 @@ const standardValueMappings *:seq[(system.string, system.string)]= @[
   ("SIZE_MAX",   "high(csize_t)"),
   ("NAN",        "NaN"),
   ("INFINITY",   "Inf"),
+  ("FLT_MAX",    "high(cfloat)"),
+  ("FLT_MIN",    "low(cfloat)"),
+  ("DBL_MAX",    "high(cdouble)"),
+  ("DBL_MIN",    "low(cdouble)"),
 ]
 
 proc stripCSuffix*(value: system.string): system.string =
