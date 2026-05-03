@@ -142,7 +142,8 @@ proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; 
     pairs.add conv.headerPragma
 
   if conv.pragmaOverride != nil:
-    pairs = conv.pragmaOverride(StructType, cName, pairs)
+    let labelKind = if isUnion: UnionType else: StructType
+    pairs = conv.pragmaOverride(labelKind, cName, pairs)
 
   result = conv.chainPragmas(pairs)
 
