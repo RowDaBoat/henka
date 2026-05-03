@@ -45,8 +45,8 @@ type Converter* = object
   lastStatement*     : Option[astTF.Id]
   firstAliasStmt*    : Option[astTF.Id]
   lastAliasStmt*     : Option[astTF.Id]
-  firstObjectStmt*   : Option[astTF.Id]
-  lastObjectStmt*    : Option[astTF.Id]
+  firstTypeStmt*     : Option[astTF.Id]
+  lastTypeStmt*      : Option[astTF.Id]
   firstOtherStmt*    : Option[astTF.Id]
   lastOtherStmt*     : Option[astTF.Id]
   isCpp*             : bool

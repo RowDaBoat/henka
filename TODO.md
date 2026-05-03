@@ -43,14 +43,14 @@
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
 - [ ] write DSL for AST
-- [ ] Proper generic type references in AST
+- [x] Proper generic type references in AST
   - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
   - [x] `add_primitive` now parses `<>` and creates expression chain for type arguments
   - [x] Simple and multi-arg templates work: `Ref[int]`, `Map[int, float]`
   - [x] Nested templates: `Vector<Ref<int>>` → `Vector[Ref[int]]` — expression name uses `<>`→`[]` string replacement, not recursive `instantiation` chains
-  - [ ] Template typedef alias ordering — `typedef Map<int, Ref<float>> ComplexMap` alias emits before the template type definitions (alias chain before object chain). Forward reference breaks `nim check`.
-  - [ ] Template instantiation arg types not resolved through type system — `Map<int, float>` renders raw C++ type names (`int`, `float`) instead of Nim types (`cint`, `cfloat`). Works by accident when C++ and Nim names match, breaks otherwise.
-  - [ ] `toAlias` space-in-angle-brackets — `typedef Map<int, Ref<float>>` was falling through to `incompleteStruct` because `' ' in elabName` didn't skip spaces inside `<>`. Fixed with `'<' notin elabName` guard.
+  - [x] Template typedef alias ordering — fixed by putting all `sType` statements in one chain (types → aliases → others). All type statements stay in one `type` block so Nim forward references work.
+  - [x] Template instantiation arg types not resolved through type system — fixed by using `clang_Type_getNumTemplateArguments` / `clang_Type_getTemplateArgumentAsType` in `toObject` to get actual `CXType` values and run them through `convertType`. `int`→`cint`, `float`→`cfloat` etc.
+  - [x] `toAlias` space-in-angle-brackets — `typedef Map<int, Ref<float>>` was falling through to `incompleteStruct` because `' ' in elabName` didn't skip spaces inside `<>`. Fixed with `'<' notin elabName` guard.
 - [x] C++ reference semantics in bindings
   - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
   - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
@@ -100,7 +100,9 @@
   - [ ] C cast expressions in macro values (`((Sint8) 0x7F)`) — needs macro expression parser
   - [ ] Function-like macro calls in const values (`SDL_VERSIONNUM(...)`, `SDL_BUTTON(...)`) — not currently erroring (skipped or resolved by clang) but not properly converted
   - [ ] Compiler builtin macros (`__func__`, `__BYTE_ORDER`, `__GNUC__`) — not currently erroring but not properly handled
-- [ ] Test with dearimgui — 1847 lines, passes `nim check`, 661 procs, 206 struct methods
+- [x] Test with dearimgui — 1847 lines, passes `nim check`, 661 procs, 206 struct methods
+  - [x] Template type resolution — fixed by using clang Type API for template args, types now resolve through `convertType`
+  - [x] Type block ordering — all type statements in one block, const aliases separate. Typedefs like `ImU32 = cuint` no longer break forward references.
   - [ ] Some `ImVector<T>*` fields resolve to `pointer` instead of proper generic types — template type resolution is lossy
   - [ ] 5 opaque forward declarations (`ImDrawListSharedData`, `ImFontAtlasBuilder`, `ImFontLoader`, `ImGuiContext`, `ImNewWrapper`) — intentionally opaque in imgui.h but may need stubs for downstream use
 - [ ] Test with godot-cpp: 1055/1056 files generate without crashing, but each file re-emits all included symbols (~902K lines for 1056 files). Needs cross-file import tracking and symbol origin filtering to produce usable multi-file output. Also `CLASSDB_SINGLETON_FORWARD_METHODS` macro expands to ~6KB raw C++ in 952 files.

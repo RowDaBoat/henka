@@ -22,24 +22,14 @@ proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   of astTF.sBranch      : previous.branch.next      = some(nextId)
   conv.ast.data.statements[previousId] = previous
 
-proc isObjectType(conv: Converter, stmt: astTF.Statement): bool =
-  if stmt.kind != astTF.sType: return false
-  let typeKind = conv.ast.data.types[stmt.`type`.id].kind
-  typeKind == astTF.tObject
-
 proc add_statement_chained*(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.} =
   let stmtId = conv.ast.add_statement(statement)
 
   case statement.kind
   of astTF.sType:
-    if conv.isObjectType(statement):
-      if conv.lastObjectStmt.isSome: conv.linkAfter(conv.lastObjectStmt.get, stmtId)
-      if conv.firstObjectStmt.isNone: conv.firstObjectStmt = some(stmtId)
-      conv.lastObjectStmt = some(stmtId)
-    else:
-      if conv.lastAliasStmt.isSome: conv.linkAfter(conv.lastAliasStmt.get, stmtId)
-      if conv.firstAliasStmt.isNone: conv.firstAliasStmt = some(stmtId)
-      conv.lastAliasStmt = some(stmtId)
+    if conv.lastTypeStmt.isSome: conv.linkAfter(conv.lastTypeStmt.get, stmtId)
+    if conv.firstTypeStmt.isNone: conv.firstTypeStmt = some(stmtId)
+    conv.lastTypeStmt = some(stmtId)
   of astTF.sAlias:
     if conv.lastAliasStmt.isSome: conv.linkAfter(conv.lastAliasStmt.get, stmtId)
     if conv.firstAliasStmt.isNone: conv.firstAliasStmt = some(stmtId)

@@ -176,8 +176,8 @@ proc generate*(
     conv.lastStatement   = none(astTF.Id)
     conv.firstAliasStmt  = none(astTF.Id)
     conv.lastAliasStmt   = none(astTF.Id)
-    conv.firstObjectStmt = none(astTF.Id)
-    conv.lastObjectStmt  = none(astTF.Id)
+    conv.firstTypeStmt = none(astTF.Id)
+    conv.lastTypeStmt  = none(astTF.Id)
     conv.firstOtherStmt  = none(astTF.Id)
     conv.lastOtherStmt   = none(astTF.Id)
 
@@ -193,14 +193,14 @@ proc generate*(
     discard clang_visitChildren(rootCursor, visitor, addr conv)
     clang_disposeTranslationUnit(unit)
 
-    # Stitch chains: objects → aliases → others
-    if conv.lastObjectStmt.isSome and conv.firstAliasStmt.isSome:
-      conv.linkAfter(conv.lastObjectStmt.get, conv.firstAliasStmt.get)
-    let lastType = if conv.lastAliasStmt.isSome: conv.lastAliasStmt elif conv.lastObjectStmt.isSome: conv.lastObjectStmt else: none(astTF.Id)
+    # Stitch chains: types → aliases → others
+    if conv.lastTypeStmt.isSome and conv.firstAliasStmt.isSome:
+      conv.linkAfter(conv.lastTypeStmt.get, conv.firstAliasStmt.get)
+    let lastType = if conv.lastAliasStmt.isSome: conv.lastAliasStmt elif conv.lastTypeStmt.isSome: conv.lastTypeStmt else: none(astTF.Id)
     if lastType.isSome and conv.firstOtherStmt.isSome:
       conv.linkAfter(lastType.get, conv.firstOtherStmt.get)
     conv.ast.data.modules[moduleIdx].body =
-      if   conv.firstObjectStmt.isSome: conv.firstObjectStmt
+      if   conv.firstTypeStmt.isSome: conv.firstTypeStmt
       elif conv.firstAliasStmt.isSome:  conv.firstAliasStmt
       elif conv.firstOtherStmt.isSome:  conv.firstOtherStmt
       else: none(astTF.Id)
