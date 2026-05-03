@@ -1,7 +1,7 @@
 {.compile: "impl.cpp".}
 
 # This test imports the generated bindings file.
-# It will fail to compile until the converter generates test_cpp_bindings.nim.
+# It will fail to compile until the converter generates bindings.nim.
 import ./bindings
 
 proc printf(format :cstring) {.importc, varargs, header: "<cstdio>".}
@@ -47,9 +47,9 @@ proc main =
   let cr = cross(a, b)
   printf("cross(a, b) = (%g, %g, %g)\n", cr.x, cr.y, cr.z)
 
-  printf("clamp(5.0, 0.0, 3.0) = %g\n", test_cpp_bindings.clamp(5.0.cfloat, 0.0.cfloat, 3.0.cfloat))
-  printf("clamp(-1.0, 0.0, 3.0) = %g\n", test_cpp_bindings.clamp((-1.0).cfloat, 0.0.cfloat, 3.0.cfloat))
-  printf("clamp(2.0, 0.0, 3.0) = %g\n", test_cpp_bindings.clamp(2.0.cfloat, 0.0.cfloat, 3.0.cfloat))
+  printf("clamp(5.0, 0.0, 3.0) = %g\n", bindings.clamp(5.0.cfloat, 0.0.cfloat, 3.0.cfloat))
+  printf("clamp(-1.0, 0.0, 3.0) = %g\n", bindings.clamp((-1.0).cfloat, 0.0.cfloat, 3.0.cfloat))
+  printf("clamp(2.0, 0.0, 3.0) = %g\n", bindings.clamp(2.0.cfloat, 0.0.cfloat, 3.0.cfloat))
 
   let col = Color.Green
   printf("color = %d\n", col.cint)
