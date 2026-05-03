@@ -14,3 +14,9 @@ struct C {
 };
 
 void use_c(struct C *c);
+
+typedef unsigned short DrawIdx;
+
+struct D {
+    DrawIdx x;
+};

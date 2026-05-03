@@ -49,7 +49,11 @@ const cpp = "cpp"
 const cppHeader = "header.hpp"
 const cppFeatures = [
   (check, "empty_files"),
-  (check, "big")
+  (check, "big"),
+  #(check, "ordering_cpp_templates"),
+  #(check, "ordering_templates"),
+  (check, "ordering_templates"),
+  (check, "ordering_forward_templates")
 ]
 
 suite "Henka C++ should support":
