@@ -74,14 +74,12 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
 #_______________________________________
 # @section Generator: Internal Helpers
 #_____________________________
-proc failed_module(inputFile: system.string, clangArgs: seq[system.string], isCpp: bool): slate.codegen.Module =
-  var diagnostic = "# Failed to parse: " & inputFile & "\n"
-  diagnostic.add "# isCpp: " & $isCpp & "\n"
+proc failed_diagnostic(inputFile: system.string, clangArgs: seq[system.string], isCpp: bool): system.string =
+  result = "# Failed to parse: " & inputFile & "\n"
+  result.add "# isCpp: " & $isCpp & "\n"
   if clangArgs.len > 0:
-    diagnostic.add "# clangArgs: " & clangArgs.join(" ") & "\n"
-
-  diagnostic.add "# Ensure the file exists and all include paths are correct.\n"
-  result = slate.codegen.Module(path: inputFile, definitions: diagnostic)
+    result.add "# clangArgs: " & clangArgs.join(" ") & "\n"
+  result.add "# Ensure the file exists and all include paths are correct.\n"
 
 
 #_______________________________________
@@ -107,8 +105,6 @@ proc generate*(
   dynlibName        : system.string      = "",
   dynlibPath        : system.string      = ""
 ): Output =
-  result = Output(modules: @[])
-
   if inputFiles.len == 0:
     return
 
@@ -164,15 +160,18 @@ proc generate*(
       opts = opts or CXTranslationUnit_SingleFileParse.cuint
 
     let unit = clang_parseTranslationUnit(index, inputFile.cstring, argsPtr, argsLen, nil, 0, opts)
-    if unit.isNil:
-      result.modules.add failed_module(inputFile, clangArgs, isCpp)
-      continue
-
     let moduleIdx = conv.ast.data.modules.len
     conv.ast.data.modules.add astTF.Module(path: inputFile, source: "")
+    conv.module = astTF.Id(moduleIdx)
+
+    if unit.isNil:
+      let diagnostic = failed_diagnostic(inputFile, clangArgs, isCpp)
+      let diagLoc = conv.addSrc(diagnostic)
+      conv.ast.data.modules[moduleIdx].body = some(conv.ast.add_statement(
+        Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: diagLoc))))
+      continue
     conv.headerFile = inputFile
     conv.tu = unit
-    conv.module = astTF.Id(moduleIdx)
     conv.lastStatement   = none(astTF.Id)
     conv.firstAliasStmt  = none(astTF.Id)
     conv.lastAliasStmt   = none(astTF.Id)
@@ -205,21 +204,7 @@ proc generate*(
       elif conv.firstOtherStmt.isSome:  conv.firstOtherStmt
       else: none(astTF.Id)
 
-  # Render each module
-  var nimOut = Output(modules: @[])
-
-  for idx in 0..<conv.ast.data.modules.len:
-    nimOut.modules.add output.Module(path: conv.ast.data.modules[idx].path)
-
-  for idx in 0..<conv.ast.data.modules.len:
-    let moduleBody = conv.ast.data.modules[idx].body
-    if moduleBody.isSome:
-      conv.ast.statement_list(astTF.Id(idx), moduleBody.get, Target.definition, nimOut)
-
-  for idx in 0..<conv.ast.data.modules.len:
-    result.modules.add output.Module(
-      path        : conv.ast.data.modules[idx].path,
-      definitions : nimOut.modules[idx].definitions)
+  result = slate.codegen.nim(conv.ast)
 
 
 #_______________________________________

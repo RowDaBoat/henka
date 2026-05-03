@@ -41,7 +41,7 @@
 - [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
-- [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
+- [x] Move multi-module rendering logic into slate — `slate.codegen.nim(ast)` renders all modules, returns Output
 - [ ] write DSL for AST
 - [x] Proper generic type references in AST
   - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
