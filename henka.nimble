@@ -7,9 +7,9 @@ installExt  = @["nim"]
 
 # Dependencies
 requires "nim >= 2.0.0"
-requires "https://github.com/rowDaBoat/cliquet"
-requires "https://codeberg.org/heysokam/astTF"
-requires "https://codeberg.org/heysokam/slate"
+requires "https://github.com/RowDaBoat/cliquet#head"
+requires "https://codeberg.org/heysokam/astTF#head"
+requires "https://codeberg.org/heysokam/slate#head"
 
 # Binaries
 bin           = @["henka"]
