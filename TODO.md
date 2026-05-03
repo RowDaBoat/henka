@@ -63,6 +63,7 @@
 - [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
 - [ ] so/dll/dylib auto-resolution (current solution: `{.strdefine.}`)
+- [ ] Potentially unify renamer/symbolOverride/unnamedFieldNamer into a single callback or pipeline
 
 
 ## Testing
