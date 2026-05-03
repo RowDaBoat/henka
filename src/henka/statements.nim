@@ -69,7 +69,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
       return CXChildVisit_Continue.cint
 
     # Anonymous struct typedef: emit as incompleteStruct object with the typedef name
-    if ' ' in elabName:
+    if '<' notin elabName and ' ' in elabName:
       let commentOpt = conv.add_comment(cursor)
       let typeName = conv.addRenamed(Typedef, name)
       var anonPairs :seq[(system.string, system.string)]= @[("incompleteStruct", "")]

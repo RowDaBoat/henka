@@ -43,7 +43,19 @@
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [ ] Move multi-module rendering logic into slate (currently hardcoded in generator.nim)
 - [ ] write DSL for AST
-- [ ] Proper generic type references in AST — `Ref<Animation>` currently hacked as `Ref[Animation]` string literal in primitive name; should parse into generic type nodes with proper type arguments
+- [ ] Proper generic type references in AST
+  - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
+  - [x] `add_primitive` now parses `<>` and creates expression chain for type arguments
+  - [x] Simple and multi-arg templates work: `Ref[int]`, `Map[int, float]`
+  - [x] Nested templates: `Vector<Ref<int>>` → `Vector[Ref[int]]` — expression name uses `<>`→`[]` string replacement, not recursive `instantiation` chains
+  - [ ] Template typedef alias ordering — `typedef Map<int, Ref<float>> ComplexMap` alias emits before the template type definitions (alias chain before object chain). Forward reference breaks `nim check`.
+  - [ ] Template instantiation arg types not resolved through type system — `Map<int, float>` renders raw C++ type names (`int`, `float`) instead of Nim types (`cint`, `cfloat`). Works by accident when C++ and Nim names match, breaks otherwise.
+  - [ ] `toAlias` space-in-angle-brackets — `typedef Map<int, Ref<float>>` was falling through to `incompleteStruct` because `' ' in elabName` didn't skip spaces inside `<>`. Fixed with `'<' notin elabName` guard.
+- [x] C++ reference semantics in bindings
+  - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
+  - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
+  - [x] `const T&` → `T` (flattened, const stripped)
+  - [x] `const T&&` → `T` (flattened, const stripped)
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 
 

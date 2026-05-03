@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith, replace, contains
+from std/strutils import startsWith, replace, contains, split, strip, find, rfind
 # @deps slate
 import slate/ast as astTF
 # @deps henka
@@ -17,12 +17,44 @@ const clang_Primitives = {
 }
 
 
-proc templateToGeneric(name: string): string =
-  if '<' in name: name.replace("<", "[").replace(">", "]")
-  else: name
+proc splitTemplateArgs(argsStr: string): seq[string] =
+  var depth = 0
+  var current = ""
+  for character in argsStr:
+    if character == '<': depth += 1
+    elif character == '>': depth -= 1
+    if character == ',' and depth == 0:
+      result.add current.strip
+      current = ""
+    else:
+      current.add character
+  if current.strip.len > 0:
+    result.add current.strip
 
 proc add_primitive*(conv: var Converter, name: string): astTF.Id =
-  result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name.templateToGeneric))))
+  let angleBracket = name.find('<')
+  if angleBracket < 0:
+    return conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name))))
+
+  let baseName = name[0..<angleBracket]
+  let closingBracket = name.rfind('>')
+  let argsStr = name[angleBracket + 1 ..< closingBracket]
+  let args = splitTemplateArgs(argsStr)
+
+  var firstExpr = none(astTF.Id)
+  var prevExpr = none(astTF.Id)
+  for arg in args:
+    let nimArg = arg.replace("<", "[").replace(">", "]")
+    let exprId = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(
+      name: conv.addName(nimArg))))
+    if prevExpr.isSome:
+      conv.ast.data.expressions[prevExpr.get].identifier.next = some(exprId)
+    if firstExpr.isNone: firstExpr = some(exprId)
+    prevExpr = some(exprId)
+
+  result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
+    name: conv.addName(baseName),
+    instantiation: firstExpr)))
 
 
 proc toUnsupported*(conv: var Converter, typ: CXType): astTF.Id =
@@ -100,6 +132,8 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
     named = conv.sanitizer(conv.renamer(UnionType, named[6..^1]))
   elif named.startsWith("enum "):
     named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
+  elif '<' in named:
+    return conv.add_primitive(named)
   elif ' ' in named:
     return conv.add_primitive("pointer")
   else:
@@ -150,7 +184,21 @@ proc toArray*(conv: var Converter, typ: CXType): astTF.Id =
 
 proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
   let pointee = clang_getPointeeType(typ)
-  result = conv.convert_type(pointee)
+  let isConst = pointee.typeSpelling.startsWith("const ")
+  let targetId = conv.convert_type(pointee)
+  if isConst:
+    result = targetId
+  elif typ.kind == CXType_LValueReference:
+    var target = conv.ast.data.types[targetId]
+    target.primitive.mutable = true
+    conv.ast.data.types[targetId] = target
+    result = targetId
+  elif typ.kind == CXType_RValueReference:
+    result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
+      name: conv.ast.data.types[targetId].primitive.name,
+      keyword: some(conv.addName("sink")))))
+  else:
+    result = targetId
 
 
 proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =

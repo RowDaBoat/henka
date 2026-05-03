@@ -53,7 +53,9 @@ const cppFeatures = [
   #(check, "ordering_cpp_templates"),
   #(check, "ordering_templates"),
   (check, "ordering_templates"),
-  (check, "ordering_forward_templates")
+  (check, "ordering_forward_templates"),
+  (check, "template_generics"),
+  (check, "references"),
 ]
 
 suite "Henka C++ should support":
