@@ -56,7 +56,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling
- 
+
     # Skip typedef that aliases same-named struct/enum/union (e.g. typedef struct Foo {} Foo)
     if   elabName.startsWith("struct "):
       elabName = elabName[7..^1]

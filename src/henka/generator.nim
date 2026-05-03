@@ -90,6 +90,7 @@ proc failed_module(inputFile: system.string, clangArgs: seq[system.string], isCp
 proc generate*(
   inputFiles        : seq[system.string],
   clangArgs         : seq[system.string] = @[],
+  rootPath          : string             = "",
   isCpp             : bool               = false,
   renamer           : Renamer            = defaultRenamer,
   sanitizer         : Sanitizer          = defaultSanitizer,
@@ -114,6 +115,10 @@ proc generate*(
   let index = clang_createIndex(0, 0)
   defer: clang_disposeIndex(index)
 
+  var rootDir = case rootPath
+    of "": inputFiles[0].parentDir
+    else:  rootPath
+
   var conv = Converter(
     ast               : astTF.Ast(root: 0, data: astTF.AstData(modules: @[])),
     headerFile        : "",
@@ -126,7 +131,7 @@ proc generate*(
     renamer           : renamer,
     sanitizer         : sanitizer,
     isCpp             : isCpp,
-    rootDir           : inputFiles[0].parentDir,
+    rootDir           : rootDir,
     constructorName   : constructorName,
     destructorName    : destructorName,
     symbolFilter      : symbolFilter,
@@ -223,6 +228,7 @@ proc generate*(
 proc generate*(
   inputFile         : system.string,
   clangArgs         : seq[system.string] = @[],
+  rootPath          : string             = "",
   isCpp             : bool               = false,
   renamer           : Renamer            = defaultRenamer,
   sanitizer         : Sanitizer          = defaultSanitizer,
@@ -238,7 +244,7 @@ proc generate*(
   dynlibName        : system.string      = "",
   dynlibPath        : system.string      = ""
 ): system.string =
-  let generated = generate(@[inputFile], clangArgs, isCpp,
+  let generated = generate(@[inputFile], clangArgs, rootPath, isCpp,
     renamer, sanitizer, constructorName, destructorName, symbolFilter, symbolOverride,
     unnamedFieldNamer, typeMapper, pragmaOverride, valueMapper,
     singleFileParse = false,

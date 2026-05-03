@@ -78,13 +78,13 @@ proc run* =
   var extraArgs = config.clangargs.split()
   extraArgs.add config.incl.mapIt("-I" & it)
   extraArgs.add config.def.mapIt("-D" & it)
-  
+
   if config.std != "":
     extraArgs.add "-std=" & config.std
 
   let cppExt = [".hpp", ".hxx", ".h++", ".hh"]
   let isCpp  = config.cpp and headers.anyIt(it.splitFile.ext in cppExt)
-  let output = generate(headers, extraArgs, isCpp)
+  let output = generate(headers, extraArgs, inpath, isCpp)
 
   for module in output.modules:
     let relPath = module.path.relativePath(inpath)
