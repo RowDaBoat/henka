@@ -32,7 +32,9 @@ const cFeatures = [
   (check, "forward_declarations"),
   (check, "variables"),
   (check, "functions"),
-  (check, "passthrough_pragmas")
+  (check, "passthrough_pragmas"),
+  (check, "respect_ordering"),
+  (check, "not_regress_on_bugs")
 ]
 
 suite "Henka C should support":
