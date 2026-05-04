@@ -119,7 +119,7 @@ proc generate*(
     else:  rootPath
 
   let resolvedEnumMode = case enumMode
-    of EnumMode.Default: EnumMode.Cint
+    of EnumMode.Default: EnumMode.Enum
     else: enumMode
 
   let resolvedEnumConfig = EnumConfig(mode: resolvedEnumMode, options: enumOptions)

@@ -1,5 +1,5 @@
 import std/[unittest, os, osproc, strformat, strutils]
-import ../src/henka/generator
+import ../src/henka
 
 
 proc nim(action: string, file: string): bool =
@@ -43,7 +43,8 @@ suite "Henka C should support":
   for (action, feature) in cFeatures:
     test feature.replace("_", " "):
       let workdir = baseDir/c/feature
-      let bindingsSource = generate(workdir/cHeader)
+      let enumMode = if feature == "enums_to_cint": EnumMode.Cint else: EnumMode.Default
+      let bindingsSource = generate(workdir/cHeader, enumMode = enumMode)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
 

@@ -148,8 +148,10 @@ proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; 
   result = conv.chainPragmas(pairs)
 
 
-proc enumPragmas*(conv: var Converter; cName: system.string): astTF.Id =
+proc enumPragmas*(conv: var Converter; cName: system.string; config: EnumConfig): astTF.Id =
   var pairs: seq[(system.string, system.string)] = @[]
+  if EnumOption.Pure in config.options:
+    pairs.add ("pure", "")
   pairs.add ("size", "sizeof(cint)")
 
   if conv.linkMode != LinkMode.dynlib:
