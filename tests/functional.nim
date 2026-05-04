@@ -3,7 +3,7 @@ import ../src/henka
 
 
 proc nim(action: string, file: string): bool =
-  let (output, exitCode) = execCmdEx(&"nim check {quoteShell(file)}")
+  let (output, exitCode) = execCmdEx(&"nim {action} {quoteShell(file)}")
   if exitCode != 0:
     echo output
   result = exitCode == 0
@@ -21,16 +21,23 @@ const cFeatures = [
   (check, "empty_files"),
   (run,   "macros"),
   (check, "builtin_types"),
-  # (run,   "enums"),
-  (run,   "enums_pure"),
+  (run,   "enums_to_pure"),
   (run,   "enums_to_cint"),
   (run,   "enums_to_const"),
   (run,   "enums_to_distinct"),
   (run,   "enums_to_enums"),
+  (run,   "enums_holes"),
+  (run,   "enums_negative"),
+  (run,   "enums_bitflags"),
+  (run,   "enums_typedef"),
+  (run,   "enums_anonymous"),
+  (run,   "enums_sentinel"),
+  (run,   "enums_in_signatures"),
+  (run,   "enums_mixed"),
   (check, "structs"),
   (check, "inner_structs"),
-  (run,   "unions"),
-  (run,   "inner_unions"),
+  (check, "unions"),
+  (check, "inner_unions"),
   (check, "pointers"),
   (check, "function_pointers"),
   (check, "typedefs"),
@@ -64,7 +71,8 @@ const cppFeatures = [
   (check, "ordering_forward_templates"),
   (check, "template_generics"),
   (check, "references"),
-  # (run,   "enums"),
+  (check, "enums_scoped"),
+  (run,   "enums_unscoped"),
 ]
 
 suite "Henka C++ should support":
