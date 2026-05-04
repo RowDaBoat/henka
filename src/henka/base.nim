@@ -98,4 +98,5 @@ type ChildCtx* = object
   ids*            :seq[astTF.Id]
   name*           :system.string
   pendingTypeId*  :Option[astTF.Id]
+  isDistinct*     :bool
 

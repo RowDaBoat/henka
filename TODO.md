@@ -67,7 +67,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] `Enum` — proper Nim `enum` type with fields. Default for all code. Works for C enums, C++ scoped and unscoped enums.
 - [x] `Default` — resolves to `Enum` at entry point. C++ `enum class` always uses `Enum` regardless.
 - [ ] `Bitflag` — ordered Nim enum, fields without default values. Duplicates/combinations lost, converted to const, or converted to helper code depending on options.
-- [ ] `Const` — no type emitted, all fields become separate implicit comptime ints.
+- [x] `Const` — no type emitted, all fields become implicit comptime int consts.
 
 ### Options (`EnumOptions`)
 - [x] `Pure` — `{.pure.}` pragma on the resulting type (default on)

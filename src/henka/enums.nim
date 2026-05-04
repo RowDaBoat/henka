@@ -98,7 +98,7 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId, comment: commentOpt)))
 
   let sanitizedEnumName = conv.sanitizer(conv.renamer(EnumType, name))
-  var ectx = ChildCtx(conv: addr conv, name: sanitizedEnumName)
+  var ectx = ChildCtx(conv: addr conv, name: sanitizedEnumName, isDistinct: EnumOption.Distinct in config.options)
 
   discard clang_visitChildren(
     cursor,
@@ -111,9 +111,15 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
         let valNum      = clang_getEnumConstantDeclValue(child)
         let valLoc      = ctx.conv[].addSrc($valNum)
         let valExpr     = ctx.conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
+        let value       = case ctx.isDistinct
+          of off: valExpr
+          of on:
+            let enumNameExpr = ctx.conv[].ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: ctx.conv[].addName(ctx.name))))
+            let argBinding   = ctx.conv[].ast.add_binding(Binding(value: some(valExpr), private: true))
+            ctx.conv[].ast.add_expression(Expression(kind: astTF.eCall, call: ExpressionCall(name: enumNameExpr, arguments: some(argBinding))))
         let enumTypeRef  = ctx.conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: ctx.conv[].addName(ctx.name))))
         let enumTypeExpr = ctx.conv[].ast.add_expression_type(enumTypeRef)
-        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(valName), dataType: some(enumTypeExpr), value: some(valExpr)))
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(valName), dataType: some(enumTypeExpr), value: some(value)))
         ctx.conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
       return CXChildVisit_Continue.cint
     ,
@@ -130,25 +136,33 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
   return CXChildVisit_Continue.cint
 
 
-proc toAnonEnum*(conv: var Converter, cursor: CXCursor): cint =
+type AnonCtx = object
+  conv*    : ptr Converter
+  typed*   : bool
+
+proc toAnonEnum*(conv: var Converter, cursor: CXCursor, typed: bool = true): cint =
+  var ctx = AnonCtx(conv: addr conv, typed: typed)
   discard clang_visitChildren(
     cursor,
     proc(child: CXCursor, parent: CXCursor, data: pointer): cint {.cdecl.} =
       if clang_getCursorKind(child) == CXCursor_EnumConstantDecl:
-        let conv        = cast[ptr Converter](data)
-        if not conv[].symbolFilter(EnumValue, child.spelling):
+        let ctx         = cast[ptr AnonCtx](data)
+        if not ctx.conv[].symbolFilter(EnumValue, child.spelling):
           return CXChildVisit_Continue.cint
-        let valName     = conv[].addRenamed(EnumValue, child.spelling)
+        let valName     = ctx.conv[].addRenamed(EnumValue, child.spelling)
         let valNum      = clang_getEnumConstantDeclValue(child)
-        let valLoc      = conv[].addSrc($valNum)
-        let valExpr     = conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
-        let cintTypeRef  = conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv[].addName("cint"))))
-        let cintTypeExpr = conv[].ast.add_expression_type(cintTypeRef)
-        let bindingId   = conv[].ast.add_binding(Binding(name: some(valName), dataType: some(cintTypeExpr), value: some(valExpr)))
-        conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
+        let valLoc      = ctx.conv[].addSrc($valNum)
+        let valExpr     = ctx.conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
+        let dataType    = case ctx.typed
+          of off: none(astTF.Id)
+          of on:
+            let cintTypeRef  = ctx.conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: ctx.conv[].addName("cint"))))
+            some(ctx.conv[].ast.add_expression_type(cintTypeRef))
+        let bindingId   = ctx.conv[].ast.add_binding(Binding(name: some(valName), dataType: dataType, value: some(valExpr)))
+        ctx.conv[].add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
       return CXChildVisit_Continue.cint
     ,
-    addr conv
+    addr ctx
   )
   return CXChildVisit_Continue.cint
 
@@ -157,7 +171,7 @@ proc toBitflagEnum*(conv: var Converter, cursor: CXCursor, name: string, config:
   raise newException(Defect, "EnumMode.Bitflag is not implemented yet")
 
 proc toConstEnum*(conv: var Converter, cursor: CXCursor, name: string, config: EnumConfig): cint =
-  raise newException(Defect, "EnumMode.Const is not implemented yet")
+  conv.toAnonEnum(cursor, typed = false)
 
 
 proc toEnum*(conv: var Converter, cursor: CXCursor, name: string): cint =

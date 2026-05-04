@@ -22,7 +22,10 @@ const cFeatures = [
   (run,   "macros"),
   (check, "builtin_types"),
   # (run,   "enums"),
+  (run,   "enums_pure"),
   (run,   "enums_to_cint"),
+  (run,   "enums_to_const"),
+  (run,   "enums_to_distinct"),
   (run,   "enums_to_enums"),
   (check, "structs"),
   (check, "inner_structs"),
@@ -43,8 +46,12 @@ suite "Henka C should support":
   for (action, feature) in cFeatures:
     test feature.replace("_", " "):
       let workdir = baseDir/c/feature
-      let enumMode = if feature == "enums_to_cint": EnumMode.Cint else: EnumMode.Default
-      let bindingsSource = generate(workdir/cHeader, enumMode = enumMode)
+      let (eMode, eOpts) = case feature
+        of "enums_to_cint":     (EnumMode.Cint, EnumOptions.Default)
+        of "enums_to_const":    (EnumMode.Const, EnumOptions.Default)
+        of "enums_to_distinct": (EnumMode.Cint, {EnumOption.Distinct})
+        else:                   (EnumMode.Default, EnumOptions.Default)
+      let bindingsSource = generate(workdir/cHeader, enumMode = eMode, enumOptions = eOpts)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
 
