@@ -21,6 +21,7 @@ const cFeatures = [
   (check, "empty_files"),
   (run,   "macros"),
   (check, "builtin_types"),
+  # (run,   "enums"),
   (run,   "enums_to_cint"),
   (run,   "enums_to_enums"),
   (check, "structs"),
@@ -55,6 +56,7 @@ const cppFeatures = [
   (check, "ordering_forward_templates"),
   (check, "template_generics"),
   (check, "references"),
+  # (run,   "enums"),
 ]
 
 suite "Henka C++ should support":

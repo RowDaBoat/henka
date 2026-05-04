@@ -59,8 +59,27 @@
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 
 
+## Enums
+C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI. The missing piece is providing a Nim-ergonomic API on top of that `cint` representation.
+- [x] C enums as `cint` alias + `const` values — correct ABI, passes `enums_to_cint` test
+- [x] C++ scoped enums (`enum class`) — proper Nim `enum` types via `toScopedEnum`
+- [ ] Type qualification: `Direction.North` — cint alias doesn't support this
+- [ ] Stringify: `$North` — prints number, not name
+- [ ] Set support: `{FlagA, FlagB}` — cint doesn't work with sets
+- [ ] Ordering: `North < East` — works but not type-safe
+- [ ] Duplicate values: `DupeFirst = 0, DupeAlias0 = 0`
+- [ ] Negative values: `SignedNeg = -1`
+- [ ] Large values / sentinel: `Force32 = 0x7FFFFFFF`
+- [ ] Mixed implicit + explicit: `A, B = 5, C`
+- [ ] Anonymous enums: `enum { CONST = 42 }`
+- [ ] typedef enum: `typedef enum { ... } Name`
+- [ ] Enum in function signatures
+- [ ] Enum in struct fields
+- [ ] C++ unscoped enums — same as C enums
+- [ ] Callback to choose enum strategy per enum
+
+
 ## Ergonomics (v2)
-- [ ] Better cint enum ergonomics — current `cint` alias + `const` works but loses type safety and IDE autocomplete
 - [ ] Support `{.compile.}` pragma for embedding C/C++ source alongside bindings
 - [ ] so/dll/dylib auto-resolution (current solution: `{.strdefine.}`)
 - [x] Potentially unify renamer/symbolOverride/unnamedFieldNamer into a single callback or pipeline (different goals entirely)
