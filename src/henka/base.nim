@@ -11,6 +11,32 @@ export Option, none, some, isSome, isNone, get
 export HashSet, initHashSet, incl, sets.contains
 export Table, initTable, `[]=`, `[]`, hasKey, tables.contains
 
+type EnumOption* {.pure.}= enum
+  Pure      ## {.pure.} pragma will be added to the resulting type
+  Distinct  ## The type is declared as `distinct`  (not applicable to Mode.Const)
+  NoHoles   ## Fill the gaps/holes with dummy values  (bitflags cannot have holes)  https://nim-lang.org/docs/manual.html#types-enumeration-types
+  Sort      ## Sort values before emitting its code  (bitflags must be ordered)    https://nim-lang.org/docs/manual.html#types-enumeration-types
+  Full      ## Will emits helper code for the enum  (not applicable to Mode.Const)
+  # TODO:
+  # - Generate helper code for cint/distinct
+  # - Generate helper code for bitflags (enum sets)   https://nim-lang.org/docs/manual.html#set-type-bit-fields
+  # - Fill in value holes
+  # - Order enums by value
+type EnumOptions * = set[EnumOption]
+template Default *(_:typedesc[EnumOptions]) :EnumOptions= {EnumOption.Pure}
+  ## Henka decides what to use  (aka. sane defaults)
+
+type EnumMode* {.pure.}= enum
+  Default  ## Henka decides what to use  (aka. sane defaults)
+  Const    ## TODO: All fields become separate implicit comptime ints, and a type is not emitted
+  Cint     ## The type is aliased to `cint`, and its values become separate constants of that type
+  Enum     ## Type is converted to nim enum, and its values become its fields
+  Bitflag  ## TODO: Type is converted to ordered nim enum, fields generated without default values. Duplicates/combinations are either lost, converted to const, or converted to helper code, depending on EnumOptions.
+
+type EnumConfig* = object
+  mode*    : EnumMode    = EnumMode.Default
+  options* : EnumOptions = EnumOptions.Default
+
 type LinkMode* {.pure.}= enum
   header
   dynlib
@@ -21,6 +47,7 @@ type LabelKind* = enum
   StructType, UnionType, Field
   Typedef
 
+type EnumModeSelect*    = proc(name: system.string, kind: LabelKind, config: EnumConfig): EnumConfig
 type Renamer*           = proc(kind: LabelKind, name: system.string): system.string
 type SymbolFilter*      = proc(kind: LabelKind, name: system.string): bool
 type SymbolOverride*    = proc(kind: LabelKind, name: system.string): Option[system.string]
@@ -62,6 +89,9 @@ type Converter* = object
   sanitizer*         : Sanitizer
   pragmaOverride*    : PragmaOverride
   valueMapper*       : ValueMapper
+  enumModeSelect*    : EnumModeSelect
+  enumMode*          : EnumMode    = EnumMode.Default
+  enumOptions*       : EnumOptions = EnumOptions.Default
 
 type ChildCtx* = object
   conv*           :ptr Converter

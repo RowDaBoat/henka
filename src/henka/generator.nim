@@ -5,7 +5,7 @@ from std/strutils import join, startsWith
 import slate/ast as astTF
 import slate
 # @deps henka
-import ./[clang, common, pragmas, statements, cpp, callbacks]
+import ./[clang, common, pragmas, statements, cpp, callbacks, enums]
 
 
 #_______________________________________
@@ -103,7 +103,10 @@ proc generate*(
   singleFileParse   : bool               = true,
   linkMode          : LinkMode           = LinkMode.header,
   dynlibName        : system.string      = "",
-  dynlibPath        : system.string      = ""
+  dynlibPath        : system.string      = "",
+  enumModeSelect    : EnumModeSelect     = defaultEnumModeSelect,
+  enumMode          : EnumMode           = EnumMode.Default,
+  enumOptions       : EnumOptions        = EnumOptions.Default,
 ): Output =
   if inputFiles.len == 0:
     return
@@ -114,6 +117,12 @@ proc generate*(
   var rootDir = case rootPath
     of "": inputFiles[0].parentDir
     else:  rootPath
+
+  let resolvedEnumMode = case enumMode
+    of EnumMode.Default: EnumMode.Cint
+    else: enumMode
+
+  let resolvedEnumConfig = EnumConfig(mode: resolvedEnumMode, options: enumOptions)
 
   var conv = Converter(
     ast               : astTF.Ast(root: 0, data: astTF.AstData(modules: @[])),
@@ -138,7 +147,10 @@ proc generate*(
     valueMapper       : valueMapper,
     linkMode          : linkMode,
     dynlibName        : dynlibName,
-    dynlibPath        : dynlibPath)
+    dynlibPath        : dynlibPath,
+    enumModeSelect    : enumModeSelect,
+    enumMode          : resolvedEnumConfig.mode,
+    enumOptions       : resolvedEnumConfig.options)
 
   for fileIdx, inputFile in inputFiles:
     case inputFiles.len > 1
@@ -227,13 +239,17 @@ proc generate*(
   valueMapper       : ValueMapper        = defaultValueMapper,
   linkMode          : LinkMode           = LinkMode.header,
   dynlibName        : system.string      = "",
-  dynlibPath        : system.string      = ""
+  dynlibPath        : system.string      = "",
+  enumModeSelect    : EnumModeSelect     = defaultEnumModeSelect,
+  enumMode          : EnumMode           = EnumMode.Default,
+  enumOptions       : EnumOptions        = EnumOptions.Default,
 ): system.string =
   let generated = generate(@[inputFile], clangArgs, rootPath, isCpp,
     renamer, sanitizer, constructorName, destructorName, symbolFilter, symbolOverride,
     unnamedFieldNamer, typeMapper, pragmaOverride, valueMapper,
     singleFileParse = false,
-    linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath)
+    linkMode = linkMode, dynlibName = dynlibName, dynlibPath = dynlibPath,
+    enumModeSelect = enumModeSelect, enumMode = enumMode, enumOptions = enumOptions)
 
   result = case generated.modules.len > 0
     of true:  generated.modules[0].definitions

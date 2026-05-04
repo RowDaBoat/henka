@@ -3,6 +3,9 @@ from std/strutils import startsWith, endsWith, replace, toUpperAscii, contains
 # @deps henka
 import ./common
 
+proc defaultEnumModeSelect*(name: system.string, kind: LabelKind, config: EnumConfig): EnumConfig =
+  config
+
 proc defaultConstructorName*(className: system.string): system.string =
   className & "_create"
 
