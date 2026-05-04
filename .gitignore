@@ -3,3 +3,8 @@ nimcache/
 headers
 generated
 *.local*
+selfhost
+!selfhost.nim
+**/clang/api.nim
+src/henka/generator
+tests/**/bindings.nim
