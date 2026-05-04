@@ -88,9 +88,12 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
 
 
 proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: EnumConfig): cint =
-  let commentOpt = conv.add_comment(cursor)
+  let commentOpt      = conv.add_comment(cursor)
   let enumIdent       = conv.addRenamed(EnumType, name)
-  let cintTypeId      = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("cint"))))
+  let distinctKeyword = case EnumOption.Distinct in config.options
+    of on:  some(conv.addName("distinct"))
+    of off: none(astTF.Identifier)
+  let cintTypeId      = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("cint"), keyword: distinctKeyword)))
   let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(enumIdent), target: cintTypeId)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId, comment: commentOpt)))
 

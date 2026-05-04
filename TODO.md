@@ -63,15 +63,15 @@
 C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI. The missing piece is providing a Nim-ergonomic API on top of that `cint` representation.
 
 ### Modes (`EnumMode`)
-- [x] `Cint` — type aliased to `cint`, values as separate constants. Current C enum behavior.
-- [ ] `Enum` — proper Nim `enum` type with fields. Default for all code. C++ `enum class` already does this via `toScopedEnum` — need same path for C enums and C++ unscoped enums.
+- [x] `Cint` — type aliased to `cint`, values as separate constants
+- [x] `Enum` — proper Nim `enum` type with fields. Default for all code. Works for C enums, C++ scoped and unscoped enums.
+- [x] `Default` — resolves to `Enum` at entry point. C++ `enum class` always uses `Enum` regardless.
 - [ ] `Bitflag` — ordered Nim enum, fields without default values. Duplicates/combinations lost, converted to const, or converted to helper code depending on options.
 - [ ] `Const` — no type emitted, all fields become separate implicit comptime ints.
-- [ ] `Default` — henka decides based on heuristics (sequential → Enum, powers-of-2 → Bitflag, duplicates → Cint)
 
 ### Options (`EnumOptions`)
-- [ ] `Pure` — `{.pure.}` pragma on the resulting type
-- [ ] `Distinct` — type declared as `distinct` (not applicable to Const)
+- [x] `Pure` — `{.pure.}` pragma on the resulting type (default on)
+- [x] `Distinct` — type declared as `distinct` (Cint mode only)
 - [ ] `NoHoles` — fill gaps with dummy values (bitflags cannot have holes)
 - [ ] `Sort` — sort values before emitting (bitflags must be ordered)
 - [ ] `Full` — emit helper code for the enum (not applicable to Const)
@@ -79,19 +79,22 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Generate helper code for bitflags (enum sets)
 
 ### Edge cases
-- [ ] Duplicate values: `DupeFirst = 0, DupeAlias0 = 0` — Nim enums can't have duplicate ordinals
+- [x] Duplicate values: `DupeFirst = 0, DupeAlias0 = 0` — unique values become enum fields, duplicates emitted as typed consts with cast
 - [ ] Negative values: `SignedNeg = -1`
 - [ ] Large values / sentinel: `Force32 = 0x7FFFFFFF`
 - [ ] Holed enums: gaps in values
 - [ ] Mixed implicit + explicit: `A, B = 5, C`
-- [ ] Anonymous enums: `enum { CONST = 42 }`
-- [ ] typedef enum: `typedef enum { ... } Name`
+- [x] Anonymous enums: `enum { CONST = 42 }` — emitted as cint consts (no type name)
+- [x] typedef enum: `typedef enum { ... } Name` — clean alias emitted after enum type
 
 ### Integration
-- [ ] C++ unscoped enums — currently same as C (`cint`), should respect `EnumMode`
-- [ ] Enum in function signatures — type must match across declarations and usage
-- [ ] Enum in struct fields — field type must match
-- [ ] Per-enum callback — let user override mode/options for specific enums based on name and values
+- [x] C++ unscoped enums — respects `EnumMode` same as C enums
+- [x] C++ scoped enums (`enum class`) — always `Enum` mode, overridable via callback
+- [x] Enum in function signatures — type matches across declarations and usage
+- [x] Enum in struct fields — field type matches
+- [x] Per-enum callback (`EnumModeSelect`) — receives name, kind, and `EnumConfig`, returns `EnumConfig`
+- [x] Enum field names go through renamer (`addRenamed(EnumValue, ...)`)
+- [x] Code restructured into `enums.nim` — `toNimEnum`, `toCintEnum`, `toAnonEnum`, `toBitflagEnum`, `toConstEnum`
 
 
 ## Ergonomics (v2)
