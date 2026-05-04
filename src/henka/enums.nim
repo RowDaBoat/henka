@@ -20,7 +20,7 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
         let ctx       = cast[ptr ChildCtx](data)
         if not ctx.conv[].symbolFilter(EnumValue, child.spelling):
           return CXChildVisit_Continue.cint
-        let valName   = ctx.conv[].addName(child.spelling)
+        let valName   = ctx.conv[].addRenamed(EnumValue, child.spelling)
         let valNum    = clang_getEnumConstantDeclValue(child)
         let valLoc    = ctx.conv[].addSrc($valNum)
         let valExpr   = ctx.conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
