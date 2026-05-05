@@ -36,14 +36,15 @@ proc qualifiedName*(cursor: CXCursor): system.string =
   result = reversed.join("::")
 
 
-proc addPragma*(conv: var Converter; name: string; value: string = ""): astTF.Id =
+proc addPragma*(conv: var Converter; name: string; value: string = ""; quoted: bool = true): astTF.Id =
   let keyName = conv.addName(name)
   let keyExpr = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: keyName)))
   var pragmaValue: Option[astTF.Id] = none(astTF.Id)
 
   if value.len > 0:
     let valLoc = conv.addSrc(value)
-    let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.string, value: valLoc)))
+    let kind = if quoted: LiteralKind.string else: LiteralKind.generic
+    let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: kind, value: valLoc)))
     pragmaValue = some(valExpr)
 
   result = conv.ast.add_pragma(Pragma(key: keyExpr, value: pragmaValue))
@@ -53,7 +54,7 @@ proc headerPragma*(conv: Converter): (system.string, system.string) =
   let path = case conv.rootDir.len > 0
     of true:  conv.headerFile.relativePath(conv.rootDir)
     of false: conv.headerFile.lastPathPart
-  result = ("header", "\"" & path & "\"")
+  result = ("header", path)
 
 
 proc linkPragma*(conv: Converter): (system.string, system.string)=
@@ -62,11 +63,16 @@ proc linkPragma*(conv: Converter): (system.string, system.string)=
   of LinkMode.dynlib: result = ("dynlib", conv.dynlibName)
 
 
+# HACK: Determines quoting by key name. Breaks when pragma values are arbitrary expressions.
+const quotedPragmaKeys = ["header", "importc", "importcpp", "dynlib"]
+
 proc chainPragmas*(conv: var Converter; pairs: seq[(system.string, system.string)]): astTF.Id =
   var current: Option[astTF.Id] = none(astTF.Id)
 
   for idx in countdown(pairs.len - 1, 0):
-    let pragmaId = conv.addPragma(pairs[idx][0], pairs[idx][1])
+    let key = pairs[idx][0]
+    let quoted = key in quotedPragmaKeys
+    let pragmaId = conv.addPragma(key, pairs[idx][1], quoted)
     if current.isSome:
       conv.ast.data.pragmas[pragmaId].next = current
     current = some(pragmaId)
@@ -80,7 +86,7 @@ proc classPragmas*(conv: var Converter; cursor: CXCursor; isForward: bool): astT
   if isForward:
     pairs.add ("incompleteStruct", "")
 
-  pairs.add ("importcpp", "\"" & cursor.qualifiedName & "\"")
+  pairs.add ("importcpp", cursor.qualifiedName)
   pairs.add conv.headerPragma
   result = conv.chainPragmas(pairs)
 
@@ -88,7 +94,7 @@ proc classPragmas*(conv: var Converter; cursor: CXCursor; isForward: bool): astT
 proc methodPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   let name = cursor.spelling
   result = conv.chainPragmas(@[
-    ("importcpp", "\"#." & name & "(@)\""),
+    ("importcpp", "#." & name & "(@)"),
     conv.linkPragma])
 
 
@@ -96,7 +102,7 @@ proc constructorPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let qualified = parentCursor.qualifiedName
   result = conv.chainPragmas(@[
-    ("importcpp",   "\"" & qualified & "(@)\""),
+    ("importcpp", qualified & "(@)"),
     ("constructor", ""),
     conv.linkPragma
   ])
@@ -105,7 +111,7 @@ proc constructorPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
 proc destructorPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   let className = clang_getCursorSemanticParent(cursor).spelling
   result = conv.chainPragmas(@[
-    ("importcpp", "\"#.~" & className & "()\""),
+    ("importcpp", "#.~" & className & "()"),
     conv.linkPragma
   ])
 
@@ -113,7 +119,7 @@ proc destructorPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
 proc staticMethodPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   let qualified = cursor.qualifiedName
   result = conv.chainPragmas(@[
-    ("importcpp", "\"" & qualified & "(@)\""),
+    ("importcpp", qualified & "(@)"),
     conv.linkPragma
   ])
 
@@ -134,10 +140,7 @@ proc structPragmas*(conv: var Converter; cName: system.string; isForward: bool; 
   if conv.linkMode != LinkMode.dynlib:
     let tag = if isUnion: "union " else: "struct "
     let importValue =
-      if conv.isCpp: "\"" & cName & "\""
-      elif isTagged: "\"" & tag & cName & "\""
-      else:          "\"" & cName & "\""
-
+      if conv.isCpp: cName      elif isTagged: tag & cName      else:          cName
     pairs.add (conv.importPragmaKey, importValue)
     pairs.add conv.headerPragma
 
@@ -156,9 +159,8 @@ proc enumPragmas*(conv: var Converter; cName: system.string; config: EnumConfig)
 
   if conv.linkMode != LinkMode.dynlib:
     let importValue = case conv.isCpp:
-      of true:  "\"" & cName & "\""
-      of false: "\"enum " & cName & "\""
-
+      of true:  cName
+      of false: "enum " & cName
     pairs.add (conv.importPragmaKey, importValue)
     pairs.add conv.headerPragma
 
@@ -172,10 +174,10 @@ proc funcPragmas*(conv: var Converter; cName: system.string): astTF.Id =
   var pairs: seq[(system.string, system.string)] = @[]
 
   if conv.isCpp:
-    pairs.add (conv.importPragmaKey, "\"" & cName & "(@)\"")
+    pairs.add (conv.importPragmaKey, cName & "(@)")
     pairs.add conv.linkPragma
   else:
-    pairs.add (conv.importPragmaKey, "\"" & cName & "\"")
+    pairs.add (conv.importPragmaKey, cName)
     pairs.add ("cdecl", "")
     pairs.add conv.linkPragma
 

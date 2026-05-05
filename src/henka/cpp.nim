@@ -18,18 +18,18 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
     if argc > 0:
       let argType = clang_getCursorType(clang_Cursor_getArgument(cursor, 0))
       if argType.kind == CXType_RValueReference: isMove = true
-    if isMove : result = ("move", "\"# = std::move(#)\"")
-    else      : result = ("assign", "\"# = #\"")
+    if isMove : result = ("move", "# = std::move(#)")
+    else      : result = ("assign", "# = #")
     return
   if name == "operator-":
-    if argc == 0 : result = ("`-`", "\"-#\"")
-    else         : result = ("`-`", "\"# - #\"")
+    if argc == 0 : result = ("`-`", "-#")
+    else         : result = ("`-`", "# - #")
     return
   for entry in OperatorPatterns:
     if entry[0] == name:
       result = (entry[1], entry[2])
       return
-  result = (name, "\"#." & name & "(@)\"")
+  result = (name, "#." & name & "(@)")
 
 
 proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic :bool = false) :cint=
@@ -353,7 +353,7 @@ proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :c
       conv.ast.data.bindings[argCtx.ids[idx]].next = some(argCtx.ids[idx + 1])
     firstArg = some(argCtx.ids[0])
   let pragmaId = conv.chainPragmas(@[
-    ("importcpp", "\"" & qualified & "<'*0>(@)\""),
+    ("importcpp", qualified & "<'*0>(@)"),
     conv.linkPragma])
   let procId = conv.ast.add_procedure(Procedure(
     name       : some(funcName),

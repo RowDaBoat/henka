@@ -56,6 +56,7 @@
   - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
   - [x] `const T&` → `T` (flattened, const stripped)
   - [x] `const T&&` → `T` (flattened, const stripped)
+- [ ] Pragma values as proper expressions — unquoted pragma values (like `sizeof(cint)`) are currently stored as `LiteralKind.generic` literals. They should be proper expression trees (identifier, call, etc.) once slate codegen supports arbitrary expression generation.
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 
 

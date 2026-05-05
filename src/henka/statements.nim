@@ -29,7 +29,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
       var anonPairs :seq[(system.string, system.string)]= @[("incompleteStruct", "")]
 
       if conv.linkMode != LinkMode.dynlib:
-        anonPairs.add (conv.importPragmaKey, "\"" & name & "\"")
+        anonPairs.add (conv.importPragmaKey, name)
         anonPairs.add conv.headerPragma
 
       let pragmaId = conv.chainPragmas(anonPairs)
@@ -297,7 +297,7 @@ proc toVariable*(conv: var Converter, cursor: CXCursor, name: string): cint =
         of true:  LiteralKind.char
         of false: LiteralKind.integer
       let valStr = case isCharType and val >= 32 and val < 127
-        of true:  "'" & $chr(val) & "'"
+        of true:  $chr(val)
         of false: $val
       let valLoc  = conv.addSrc(valStr)
       let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: litKind, value: valLoc)))
