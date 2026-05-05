@@ -15,49 +15,53 @@ const baseDir = currentSourcePath().parentDir()
 const check = "check"
 const run = "r"
 
+proc feature(
+  testType: string,
+  name: string,
+  enumMode: EnumMode = EnumMode.Default,
+  enumOptions: EnumOptions = EnumOptions.Default
+): (string, string, EnumMode, EnumOptions) =
+  (testType, name, enumMode, enumOptions)
+
+
 const c = "c"
 const cHeader = "header.h"
 const cFeatures = [
-  (check, "empty_files"),
-  (run,   "macros"),
-  (check, "builtin_types"),
-  (run,   "enums_to_pure"),
-  (run,   "enums_to_cint"),
-  (run,   "enums_to_const"),
-  (run,   "enums_to_distinct"),
-  (run,   "enums_to_enums"),
-  (run,   "enums_holes"),
-  (run,   "enums_negative"),
-  (run,   "enums_bitflags"),
-  (run,   "enums_typedef"),
-  (run,   "enums_anonymous"),
-  (run,   "enums_sentinel"),
-  (run,   "enums_in_signatures"),
-  (run,   "enums_mixed"),
-  (check, "structs"),
-  (check, "inner_structs"),
-  (check, "unions"),
-  (check, "inner_unions"),
-  (check, "pointers"),
-  (check, "function_pointers"),
-  (check, "typedefs"),
-  (check, "forward_declarations"),
-  (check, "variables"),
-  (check, "functions"),
-  (check, "passthrough_pragmas"),
-  (check, "respect_ordering"),
-  (check, "not_regress_on_bugs")
+  feature(check, "empty_files"),
+  feature(run,   "macros"),
+  feature(check, "builtin_types"),
+  feature(run,   "enums_to_pure"),
+  feature(run,   "enums_to_cint",     EnumMode.Cint,  EnumOptions.Default),
+  feature(run,   "enums_to_const",    EnumMode.Const, EnumOptions.Default),
+  feature(run,   "enums_to_distinct", EnumMode.Cint,  {EnumOption.Distinct}),
+  feature(run,   "enums_to_enums"),
+  feature(run,   "enums_holes"),
+  feature(run,   "enums_negative"),
+  feature(run,   "enums_bitflags"),
+  feature(run,   "enums_typedef"),
+  feature(run,   "enums_anonymous"),
+  feature(run,   "enums_sentinel"),
+  feature(run,   "enums_in_signatures"),
+  feature(run,   "enums_mixed"),
+  feature(check, "structs"),
+  feature(check, "inner_structs"),
+  feature(check, "unions"),
+  feature(check, "inner_unions"),
+  feature(check, "pointers"),
+  feature(check, "function_pointers"),
+  feature(check, "typedefs"),
+  feature(check, "forward_declarations"),
+  feature(check, "variables"),
+  feature(check, "functions"),
+  feature(check, "passthrough_pragmas"),
+  feature(check, "respect_ordering"),
+  feature(check, "not_regress_on_bugs"),
 ]
 
 suite "Henka C should support":
-  for (action, feature) in cFeatures:
-    test feature.replace("_", " "):
-      let workdir = baseDir/c/feature
-      let (eMode, eOpts) = case feature
-        of "enums_to_cint":     (EnumMode.Cint, EnumOptions.Default)
-        of "enums_to_const":    (EnumMode.Const, EnumOptions.Default)
-        of "enums_to_distinct": (EnumMode.Cint, {EnumOption.Distinct})
-        else:                   (EnumMode.Default, EnumOptions.Default)
+  for (action, name, eMode, eOpts) in cFeatures:
+    test name.replace("_", " "):
+      let workdir = baseDir/c/name
       let bindingsSource = generate(workdir/cHeader, enumMode = eMode, enumOptions = eOpts)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)

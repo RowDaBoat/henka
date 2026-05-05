@@ -8,3 +8,5 @@ selfhost
 **/clang/api.nim
 src/henka/generator
 tests/**/bindings.nim
+tests/functional
+
