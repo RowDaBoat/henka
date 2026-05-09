@@ -3,9 +3,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@heysokam/astTF": "file:../.lib/astTF",
-    "@webgpu/types": "^0.1.69",
-    "next": "^16.2.4",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "@heysokam/astTF": "git+https://codeberg.org/heysokam/astTF.git"
+  },
+  "bin": {
+    "henka-js": "./src/henka.ts"
   }
 }
