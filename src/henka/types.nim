@@ -48,7 +48,7 @@ proc add_primitive*(conv: var Converter, name: string): astTF.Id =
     let exprId = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(
       name: conv.addName(nimArg))))
     if prevExpr.isSome:
-      conv.ast.data.expressions[prevExpr.get].identifier.next = some(exprId)
+      conv.ast.data.expressions.get[prevExpr.get].identifier.next = some(exprId)
     if firstExpr.isNone: firstExpr = some(exprId)
     prevExpr = some(exprId)
 
@@ -144,7 +144,7 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
         let argTypeId = conv.convertType(argType)
         let exprId = conv.ast.add_expression_type(argTypeId)
         if prevExpr.isSome:
-          conv.ast.data.expressions[prevExpr.get].`type`.next = some(exprId)
+          conv.ast.data.expressions.get[prevExpr.get].`type`.next = some(exprId)
         if firstExpr.isNone: firstExpr = some(exprId)
         prevExpr = some(exprId)
       return conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
@@ -171,20 +171,20 @@ proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
     let argTypeId = conv.convertType(argType)
     let argName   = conv.addName("a" & $idx)
     let argTypeExpr = conv.ast.add_expression_type(argTypeId)
-    let bindingId = conv.ast.add_binding(Binding(name: some(argName), dataType: some(argTypeExpr), private: true))
+    let bindingId = conv.ast.add_binding(Binding(name: some(argName), dataType: some(argTypeExpr), private: some(true)))
     argIds.add bindingId
 
   if argIds.len > 0:
     for idx in 0..<argIds.len - 1:
-      conv.ast.data.bindings[argIds[idx]].next = some(argIds[idx + 1])
+      conv.ast.data.bindings.get[argIds[idx]].next = some(argIds[idx + 1])
     firstArg = some(argIds[0])
 
   let cdeclPragma = conv.addPragma("cdecl")
   let procId   = conv.ast.add_procedure(Procedure(
     arguments  : firstArg,
     returnType : retOpt,
-    impure     : true,
-    private    : true,
+    impure     : some(true),
+    private    : some(true),
     pragmas    : some(cdeclPragma)
   ))
 
@@ -207,13 +207,13 @@ proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
   if isConst:
     result = targetId
   elif typ.kind == CXType_LValueReference:
-    var target = conv.ast.data.types[targetId]
-    target.primitive.mutable = true
-    conv.ast.data.types[targetId] = target
+    var target = conv.ast.data.types.get[targetId]
+    target.primitive.mutable = some(true)
+    conv.ast.data.types.get[targetId] = target
     result = targetId
   elif typ.kind == CXType_RValueReference:
     result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
-      name: conv.ast.data.types[targetId].primitive.name,
+      name: conv.ast.data.types.get[targetId].primitive.name,
       keyword: some(conv.addName("sink")))))
   else:
     result = targetId

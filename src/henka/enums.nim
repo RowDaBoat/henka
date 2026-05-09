@@ -24,7 +24,7 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
         let valNum    = clang_getEnumConstantDeclValue(child)
         let valLoc    = ctx.conv[].addSrc($valNum)
         let valExpr   = ctx.conv[].ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: valLoc)))
-        let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(valName), value: some(valExpr), private: true))
+        let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(valName), value: some(valExpr), private: some(true)))
         ctx.ids.add bindingId
       return CXChildVisit_Continue.cint
     ,
@@ -38,17 +38,17 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
   var lastDupe: Option[astTF.Id] = none(astTF.Id)
 
   for bindingId in valueCtx.ids:
-    let binding = conv.ast.data.bindings[bindingId]
-    let valueExpr = conv.ast.data.expressions[binding.value.get]
+    let binding = conv.ast.data.bindings.get[bindingId]
+    let valueExpr = conv.ast.data.expressions.get[binding.value.get]
     let valueLoc = valueExpr.literal.value
     let valueStr = conv.ast.data.modules[conv.module].source[valueLoc.start ..< valueLoc.`end`]
     let ordinal = parseBiggestInt(valueStr).int
     if seenOrdinals.containsOrIncl(ordinal):
-      if lastDupe.isSome: conv.ast.data.bindings[lastDupe.get].next = some(bindingId)
+      if lastDupe.isSome: conv.ast.data.bindings.get[lastDupe.get].next = some(bindingId)
       if firstDupe.isNone: firstDupe = some(bindingId)
       lastDupe = some(bindingId)
     else:
-      if lastField.isSome: conv.ast.data.bindings[lastField.get].next = some(bindingId)
+      if lastField.isSome: conv.ast.data.bindings.get[lastField.get].next = some(bindingId)
       if firstField.isNone: firstField = some(bindingId)
       lastField = some(bindingId)
 
@@ -63,17 +63,17 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
   var currentDupe = firstDupe
   while currentDupe.isSome:
     let dupeId = currentDupe.get
-    let nextDupe = conv.ast.data.bindings[dupeId].next
-    let existingValue = conv.ast.data.bindings[dupeId].value.get
+    let nextDupe = conv.ast.data.bindings.get[dupeId].next
+    let existingValue = conv.ast.data.bindings.get[dupeId].value.get
     let enumNameExpr = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(sanitizedEnumName))))
-    let argBinding = conv.ast.add_binding(Binding(value: some(existingValue), private: true))
+    let argBinding = conv.ast.add_binding(Binding(value: some(existingValue), private: some(true)))
     let castCall = conv.ast.add_expression(Expression(kind: astTF.eCall, call: ExpressionCall(name: enumNameExpr, arguments: some(argBinding))))
     let enumTypeRef = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
     let enumTypeExpr = conv.ast.add_expression_type(enumTypeRef)
-    conv.ast.data.bindings[dupeId].value = some(castCall)
-    conv.ast.data.bindings[dupeId].dataType = some(enumTypeExpr)
-    conv.ast.data.bindings[dupeId].private = false
-    conv.ast.data.bindings[dupeId].next = none(astTF.Id)
+    conv.ast.data.bindings.get[dupeId].value = some(castCall)
+    conv.ast.data.bindings.get[dupeId].dataType = some(enumTypeExpr)
+    conv.ast.data.bindings.get[dupeId].private = some(false)
+    conv.ast.data.bindings.get[dupeId].next = none(astTF.Id)
     conv.add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: dupeId)))
     currentDupe = nextDupe
 
@@ -115,7 +115,7 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
           of off: valExpr
           of on:
             let enumNameExpr = ctx.conv[].ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: ctx.conv[].addName(ctx.name))))
-            let argBinding   = ctx.conv[].ast.add_binding(Binding(value: some(valExpr), private: true))
+            let argBinding   = ctx.conv[].ast.add_binding(Binding(value: some(valExpr), private: some(true)))
             ctx.conv[].ast.add_expression(Expression(kind: astTF.eCall, call: ExpressionCall(name: enumNameExpr, arguments: some(argBinding))))
         let enumTypeRef  = ctx.conv[].ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: ctx.conv[].addName(ctx.name))))
         let enumTypeExpr = ctx.conv[].ast.add_expression_type(enumTypeRef)

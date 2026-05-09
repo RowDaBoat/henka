@@ -74,7 +74,7 @@ proc chainPragmas*(conv: var Converter; pairs: seq[(system.string, system.string
     let quoted = key in quotedPragmaKeys
     let pragmaId = conv.addPragma(key, pairs[idx][1], quoted)
     if current.isSome:
-      conv.ast.data.pragmas[pragmaId].next = current
+      conv.ast.data.pragmas.get[pragmaId].next = current
     current = some(pragmaId)
 
   result = current.get
