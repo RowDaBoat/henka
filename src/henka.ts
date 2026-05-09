@@ -1,9 +1,8 @@
 import ts from "typescript"
+import * as fs from 'fs'
+import * as path from 'path'
 
-// astTF JSON format: tagged unions use variant name as key, no "kind" field
-// e.g. { "primitive": { "name": ... } } not { "kind": "primitive", "primitive": ... }
-
-function transform(sourceFile: ts.SourceFile, program: ts.Program) {
+export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   const ast: any = {
     root: 0,
     data: {
@@ -146,14 +145,18 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
       case ts.SyntaxKind.FunctionType: {
         const fnNode = node as ts.FunctionTypeNode
         const retTypeId = mapType(fnNode.type, checker)
+        const retTypeExpr = ast.data.expressions.length
+        ast.data.expressions.push({ type: { id: retTypeId } })
 
         let firstArg: number | undefined
         let prevArg: number | undefined
         for (const param of fnNode.parameters) {
           const argName = addName(param.name.getText())
           const argTypeId = mapType(param.type, checker)
+          const argTypeExpr = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: argTypeId } })
           const bindingId = ast.data.bindings.length
-          ast.data.bindings.push({ name: argName, dataType: argTypeId, private: true })
+          ast.data.bindings.push({ name: argName, dataType: argTypeExpr, private: true })
           if (prevArg !== undefined) ast.data.bindings[prevArg].next = bindingId
           if (firstArg === undefined) firstArg = bindingId
           prevArg = bindingId
@@ -162,7 +165,7 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
         const procId = ast.data.procedures.length
         ast.data.procedures.push({
           arguments: firstArg,
-          returnType: retTypeId,
+          returnType: retTypeExpr,
           impure: true,
           private: true,
         })
@@ -182,8 +185,10 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
               fieldTypeId = ast.data.types.length - 1
               needsOptions = true
             }
+            const fieldTypeExpr = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: fieldTypeId } })
             const bindingId = ast.data.bindings.length
-            ast.data.bindings.push({ name: fieldName, dataType: fieldTypeId })
+            ast.data.bindings.push({ name: fieldName, dataType: fieldTypeExpr })
             if (prevField !== undefined) ast.data.bindings[prevField].next = bindingId
             if (firstField === undefined) firstField = bindingId
             prevField = bindingId
@@ -247,7 +252,12 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
 
   function addProc(name: string, params: ts.NodeArray<ts.ParameterDeclaration>, retTypeNode: ts.TypeNode | undefined, pattern: string, selfType?: number) {
     const funcName = addName(name)
-    const retType = retTypeNode ? mapType(retTypeNode, checker) : undefined
+    let retType: number | undefined
+    if (retTypeNode) {
+      const retTypeId = mapType(retTypeNode, checker)
+      retType = ast.data.expressions.length
+      ast.data.expressions.push({ type: { id: retTypeId } })
+    }
 
     let firstArg: number | undefined
     let prevArg: number | undefined
@@ -255,8 +265,10 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
     // Add self parameter for instance methods
     if (selfType !== undefined) {
       const selfName = addName("self")
+      const selfTypeExpr = ast.data.expressions.length
+      ast.data.expressions.push({ type: { id: selfType } })
       const bindingId = ast.data.bindings.length
-      ast.data.bindings.push({ name: selfName, dataType: selfType, private: true })
+      ast.data.bindings.push({ name: selfName, dataType: selfTypeExpr, private: true })
       firstArg = bindingId
       prevArg = bindingId
     }
@@ -292,8 +304,10 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
           ast.data.expressions.push({ literal: { kind: 0, value: addSrc("false") } })
         }
       }
+      const argTypeExpr = ast.data.expressions.length
+      ast.data.expressions.push({ type: { id: argTypeId } })
       const bindingId = ast.data.bindings.length
-      ast.data.bindings.push({ name: argName, dataType: argTypeId, private: true, value: defaultValueId })
+      ast.data.bindings.push({ name: argName, dataType: argTypeExpr, private: true, value: defaultValueId })
       if (prevArg !== undefined) ast.data.bindings[prevArg].next = bindingId
       if (firstArg === undefined) firstArg = bindingId
       prevArg = bindingId
@@ -349,13 +363,17 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
           const funcName = addName(prefixed(fieldName))
           const selfTypeId = ast.data.types.length
           ast.data.types.push({ primitive: { name: addName(prefixedClassName) } })
+          const selfTypeExpr = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: selfTypeId } })
           const selfBinding = ast.data.bindings.length
-          ast.data.bindings.push({ name: addName("self"), dataType: selfTypeId, private: true })
+          ast.data.bindings.push({ name: addName("self"), dataType: selfTypeExpr, private: true })
+          const fieldRetExpr = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: fieldTypeId } })
           const procId = ast.data.procedures.length
           ast.data.procedures.push({
             name: funcName,
             arguments: selfBinding,
-            returnType: fieldTypeId,
+            returnType: fieldRetExpr,
             impure: true,
           })
           const pragmaId = addImportjsPragma("#." + fieldName)
@@ -375,7 +393,9 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
         if (ts.isConstructorDeclaration(member)) {
           addProc("new" + prefixedClassName, member.parameters, undefined, "new " + jsClassName + "(@)")
           const lastProc = ast.data.procedures[ast.data.procedures.length - 1]
-          lastProc.returnType = selfTypeId
+          const selfRetExpr = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: selfTypeId } })
+          lastProc.returnType = selfRetExpr
           break
         }
       }
@@ -423,6 +443,8 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
         let valueExprId: number | undefined
         const enumTypeId = ast.data.types.length
         ast.data.types.push({ primitive: { name: addName(enumTypeRefName) } })
+        const enumTypeExpr = ast.data.expressions.length
+        ast.data.expressions.push({ type: { id: enumTypeId } })
 
         if (member.initializer) {
           if (ts.isNumericLiteral(member.initializer)) {
@@ -442,7 +464,7 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
         const bindingId = ast.data.bindings.length
         ast.data.bindings.push({
           name: addName(memberName),
-          dataType: enumTypeId,
+          dataType: enumTypeExpr,
           value: valueExprId,
         })
 
@@ -487,10 +509,15 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
           ast.data.types.push({ primitive: { name: addName("cstring") } })
           typeId = ast.data.types.length - 1
         }
+        let typeExprId: number | undefined
+        if (typeId !== undefined) {
+          typeExprId = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: typeId } })
+        }
         const bindingId = ast.data.bindings.length
         ast.data.bindings.push({
           name: varName,
-          dataType: typeId,
+          dataType: typeExprId,
           value: valueExprId,
         })
 
@@ -518,8 +545,10 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
               fieldTypeId = ast.data.types.length - 1
               needsOptions = true
             }
+            const fieldTypeExpr = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: fieldTypeId } })
             const bindingId = ast.data.bindings.length
-            ast.data.bindings.push({ name: fieldName, dataType: fieldTypeId })
+            ast.data.bindings.push({ name: fieldName, dataType: fieldTypeExpr })
             if (prevField !== undefined) ast.data.bindings[prevField].next = bindingId
             if (firstField === undefined) firstField = bindingId
             prevField = bindingId
@@ -645,24 +674,61 @@ function transform(sourceFile: ts.SourceFile, program: ts.Program) {
   return ast
 }
 
-const filename = process.argv[2]
-if (!filename) {
-  console.error("Usage: henka <file.ts>")
-  process.exit(1)
+//______________________________________
+// @section Entry Point
+//____________________________
+if (import.meta.main) void run()
+async function run () :Promise<void> {
+  const filename = process.argv[2]
+  if (!filename) {
+    console.error("Usage: henka-ts <file.ts>")
+    process.exit(1)
+  }
+
+  const program = ts.createProgram([filename], {
+    target: ts.ScriptTarget.ESNext,
+    module: ts.ModuleKind.ESNext,
+    allowJs: true,
+    checkJs: true,
+  })
+
+  const sourceFile = program.getSourceFile(filename)
+  if (!sourceFile) { console.error("Failed to parse:", filename); process.exit(1) }
+  const ast  = convert(sourceFile, program)
+  const json = JSON.stringify(ast, null, 2)
+
+  const selfDirectory = path.dirname(process.execPath)
+  const localBinary   = selfDirectory + "/henka"
+  const localExists   = await Bun.file(localBinary).exists()
+  const pathExists    = !localExists && Bun.which("henka") !== null
+  if (!localExists && !pathExists) {
+    console.error("henka binary not found at", localBinary, "or in PATH")
+    process.exit(1)
+  }
+  const binaryPath = localExists ? localBinary : "henka"
+
+  const result = Bun.spawn([binaryPath, "--stdin"], {
+    stdin: new TextEncoder().encode(json),
+    stdout: "pipe",
+    stderr: "inherit",
+  })
+
+  const stdout   = (await new Response(result.stdout).text()).trim()
+  const exitCode = await result.exited
+  if (exitCode !== 0) process.exit(exitCode)
+
+  const lines       = stdout.split("\n")
+  const outputPath  = lines[1]
+  const isDirectory = fs.statSync(outputPath).isDirectory()
+
+  const outputFiles: string[] = isDirectory
+    ? [...new Bun.Glob("**/*.nim").scanSync(outputPath)].map(entry => outputPath + "/" + entry)
+    : [outputPath]
+
+  if (outputFiles.length > 0) {
+    const firstFile = outputFiles[0]
+    const bindingsPath = path.dirname(firstFile) + "/bindings.nim"
+    fs.renameSync(firstFile, bindingsPath)
+  }
 }
 
-const program = ts.createProgram([filename], {
-  target: ts.ScriptTarget.ESNext,
-  module: ts.ModuleKind.ESNext,
-  allowJs: true,
-  checkJs: true,
-})
-
-const sourceFile = program.getSourceFile(filename)
-if (!sourceFile) {
-  console.error("Failed to parse:", filename)
-  process.exit(1)
-}
-
-const ast = transform(sourceFile, program)
-console.log(JSON.stringify(ast, null, 2))

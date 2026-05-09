@@ -25,6 +25,11 @@ type CliConfig = object
     usage: "dir"
   .} : string
 
+  stdin {.
+    help: "Read astTF JSON from stdin and generate Nim output",
+    mode: option
+  .} : bool
+
   cpp {.
     help: "Compile using clang++",
     usage
@@ -59,6 +64,20 @@ proc run* =
 
   if config.help:
     echo usage & "\n" & cliquet.generateHelp()
+    quit(0)
+
+  if config.stdin:
+    let json   = readAll(system.stdin)
+    let output = generator.fromJson(json)
+    for module in output.modules:
+      let nimPath = module.path.changeFileExt(".nim")
+      createDir(nimPath.parentDir)
+      nimPath.writeFile(module.definitions)
+    let outPath = case output.modules.len > 1
+      of true:  output.modules[0].path.parentDir
+      of false: output.modules[0].path.changeFileExt(".nim")
+    echo "Done"
+    echo outPath
     quit(0)
 
   if headers.len == 0:

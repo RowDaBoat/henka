@@ -1,6 +1,7 @@
 # @deps std
 from std/os import paramStr, paramCount, splitFile, changeFileExt, parentDir
 from std/strutils import join, startsWith
+from std/json import parseJson, to
 # @deps slate
 import slate/ast as astTF
 import slate
@@ -254,3 +255,12 @@ proc generate*(
   result = case generated.modules.len > 0
     of true:  generated.modules[0].definitions
     of false: ""
+
+
+#_______________________________________
+# @section Generator: From JSON (stdin)
+#_____________________________
+proc fromJson*(json: system.string): Output =
+  let ast = astTF.fromJson(json)
+  result = slate.codegen.nim(ast)
+
