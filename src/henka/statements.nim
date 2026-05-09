@@ -87,7 +87,7 @@ proc emitUnnamedInnerType*(conv: var Converter, innerCursor: CXCursor, parentNam
   var firstField: Option[astTF.Id] = none(astTF.Id)
   if innerCtx.ids.len > 0:
     for idx in 0..<innerCtx.ids.len - 1:
-      conv.ast.data.bindings[innerCtx.ids[idx]].next = some(innerCtx.ids[idx + 1])
+      conv.ast.data.bindings.get[innerCtx.ids[idx]].next = some(innerCtx.ids[idx + 1])
     firstField = some(innerCtx.ids[0])
 
   let pragmaId = conv.structPragmas(syntheticName, isForward = false, isTagged = false, isUnion = isUnion)
@@ -175,7 +175,7 @@ proc buildObjectType(conv: var Converter, name: string, fieldIds: seq[astTF.Id],
   var firstField: Option[astTF.Id] = none(astTF.Id)
   if fieldIds.len > 0:
     for idx in 0..<fieldIds.len - 1:
-      conv.ast.data.bindings[fieldIds[idx]].next = some(fieldIds[idx + 1])
+      conv.ast.data.bindings.get[fieldIds[idx]].next = some(fieldIds[idx + 1])
     firstField = some(fieldIds[0])
 
   let pragmaId = conv.structPragmas(name, isForward, isTagged, isUnion)
@@ -203,7 +203,7 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
       conv.module = savedModule
       return CXChildVisit_Continue.cint
     let replacementType = conv.buildObjectType(name, fieldIds, isTagged, isUnion, isForward = false)
-    conv.ast.data.types[existingTypeId] = replacementType
+    conv.ast.data.types.get[existingTypeId] = replacementType
     conv.module = savedModule
     return CXChildVisit_Continue.cint
 
@@ -244,14 +244,14 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
     let argIdent  = conv.addRenamed(Parameter, argName)
     let argTypeId = conv.convertType(clang_getCursorType(arg))
     let argTypeExpr = conv.ast.add_expression_type(argTypeId)
-    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: true))
+    let bindingId = conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: some(true)))
     argIds.add bindingId
 
   var firstArg :Option[astTF.Id]= none(astTF.Id)
 
   if argIds.len > 0:
     for idx in 0..<argIds.len - 1:
-      conv.ast.data.bindings[argIds[idx]].next = some(argIds[idx + 1])
+      conv.ast.data.bindings.get[argIds[idx]].next = some(argIds[idx + 1])
     firstArg = some(argIds[0])
 
   let importName = if conv.isCpp: cursor.qualifiedName else: name
@@ -259,13 +259,13 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
   if clang_Cursor_isVariadic(cursor) != 0:
     let varargsId = conv.addPragma("varargs")
-    conv.ast.data.pragmas[varargsId].next = some(pragmaId)
+    conv.ast.data.pragmas.get[varargsId].next = some(pragmaId)
     pragmaId = varargsId
 
   let commentOpt = conv.add_comment(cursor)
   let procId = conv.ast.add_procedure(Procedure(
     name: some(funcName), arguments: firstArg, returnType: retOpt,
-    impure: true, pragmas: some(pragmaId)
+    impure: some(true), pragmas: some(pragmaId)
   ))
 
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId, comment: commentOpt)))
@@ -315,8 +315,8 @@ proc toVariable*(conv: var Converter, cursor: CXCursor, name: string): cint =
     name     : some(varName),
     dataType : some(conv.ast.add_expression_type(varTypeId)),
     value    : valueOpt,
-    runtime  : not (isConst and hasValue),
-    mutable  : not isConst))
+    runtime  : some(not (isConst and hasValue)),
+    mutable  : some(not isConst)))
 
   conv.add_statement_chained(Statement(kind: astTF.sVariable, variable: StatementVariable(id: bindingId)))
 

@@ -62,7 +62,7 @@ proc addRenamed*(conv: var Converter, kind: LabelKind, cName: system.string): as
 
 
 proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
-  var previous = conv.ast.data.statements[previousId]
+  var previous = conv.ast.data.statements.get[previousId]
   case previous.kind
   of astTF.sVariable    : previous.variable.next    = some(nextId)
   of astTF.sType        : previous.`type`.next      = some(nextId)
@@ -75,7 +75,7 @@ proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   of astTF.sExpression  : previous.expression.next  = some(nextId)
   of astTF.sKeyword     : previous.keyword.next     = some(nextId)
   of astTF.sBranch      : previous.branch.next      = some(nextId)
-  conv.ast.data.statements[previousId] = previous
+  conv.ast.data.statements.get[previousId] = previous
 
 proc add_statement_chained*(conv: var Converter, statement: astTF.Statement): astTF.Id {.discardable.} =
   let stmtId = conv.ast.add_statement(statement)
