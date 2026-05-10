@@ -1,4 +1,4 @@
-import std/[os, sequtils, strutils]
+import std/[os, sequtils, strutils, osproc]
 import cliquet
 import generator
 
@@ -27,6 +27,11 @@ type CliConfig = object
 
   stdin {.
     help: "Read astTF JSON from stdin and generate Nim output",
+    mode: option
+  .} : bool
+
+  js {.
+    help: "Force JavaScript/TypeScript mode",
     mode: option
   .} : bool
 
@@ -83,6 +88,26 @@ proc run* =
   if headers.len == 0:
     echo usage
     quit(1)
+
+  let jsExtensions = [".ts", ".js", ".mts", ".mjs", ".cts", ".cjs"]
+  let isJs = config.js or headers.anyIt(it.splitFile.ext in jsExtensions)
+
+  if isJs:
+    let selfDirectory = getAppDir()
+    let localBinary = selfDirectory / "henka-js"
+    let binaryPath = if fileExists(localBinary): localBinary else: "henka-js"
+    let args = headers.join(" ")
+    let (json, exitCode) = execCmdEx(binaryPath & " " & args)
+    if exitCode != 0:
+      echo json
+      quit(exitCode)
+    let output = generator.fromJson(json)
+    for module in output.modules:
+      let nimPath = module.path.changeFileExt(".nim")
+      createDir(nimPath.parentDir)
+      nimPath.writeFile(module.definitions)
+      echo "Wrote ", nimPath
+    quit(0)
 
   var inpath = "."
   if config.inpath != "":

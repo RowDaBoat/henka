@@ -1,20 +1,7 @@
 import ts from "typescript"
-import * as fs from 'fs'
-import * as path from 'path'
+import type { astTF } from "@heysokam/astTF"
 
-export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
-  const ast: any = {
-    root: 0,
-    data: {
-      modules:    [{ path: sourceFile.fileName, source: "" }],
-      types:      [] as any[],
-      expressions:[] as any[],
-      statements: [] as any[],
-      bindings:   [] as any[],
-      procedures: [] as any[],
-      links:      [] as any[],
-    },
-  }
+export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile, program: ts.Program) {
 
   let source = ""
   let needsJsffi = false
@@ -45,6 +32,7 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   }
 
   function addInheritablePragma(): number {
+    if (!ast.data.expressions) ast.data.expressions = []
     if (!ast.data.pragmas) ast.data.pragmas = []
     const keyExpr = ast.data.expressions.length
     ast.data.expressions.push({ identifier: { name: addName("inheritable") } })
@@ -85,6 +73,11 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   }
 
   function mapType(node: ts.TypeNode | undefined, checker: ts.TypeChecker): number {
+    if (!ast.data.types) ast.data.types = []
+    if (!ast.data.expressions) ast.data.expressions = []
+    if (!ast.data.bindings) ast.data.bindings = []
+    if (!ast.data.statements) ast.data.statements = []
+    if (!ast.data.procedures) ast.data.procedures = []
     if (!node) {
       ast.data.types.push({ primitive: { name: addName("void") } })
       return ast.data.types.length - 1
@@ -240,17 +233,22 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   }
 
   function addImportjsPragma(pattern: string): number {
+    if (!ast.data.expressions) ast.data.expressions = []
     if (!ast.data.pragmas) ast.data.pragmas = []
     const keyExpr = ast.data.expressions.length
     ast.data.expressions.push({ identifier: { name: addName("importjs") } })
     const valExpr = ast.data.expressions.length
-    ast.data.expressions.push({ literal: { kind: 1, value: addSrc('"' + pattern + '"') } })
+    ast.data.expressions.push({ literal: { kind: 2, value: addSrc(pattern) } })
     const pragmaId = ast.data.pragmas.length
     ast.data.pragmas.push({ key: keyExpr, value: valExpr })
     return pragmaId
   }
 
   function addProc(name: string, params: ts.NodeArray<ts.ParameterDeclaration>, retTypeNode: ts.TypeNode | undefined, pattern: string, selfType?: number) {
+    if (!ast.data.expressions) ast.data.expressions = []
+    if (!ast.data.bindings) ast.data.bindings = []
+    if (!ast.data.procedures) ast.data.procedures = []
+    if (!ast.data.statements) ast.data.statements = []
     const funcName = addName(name)
     let retType: number | undefined
     if (retTypeNode) {
@@ -292,16 +290,16 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
       if (param.initializer) {
         if (ts.isNumericLiteral(param.initializer)) {
           defaultValueId = ast.data.expressions.length
-          ast.data.expressions.push({ literal: { kind: 2, value: addSrc(param.initializer.text) } })
+          ast.data.expressions.push({ literal: { kind: 1, value: addSrc(param.initializer.text) } })
         } else if (ts.isStringLiteral(param.initializer)) {
           defaultValueId = ast.data.expressions.length
-          ast.data.expressions.push({ literal: { kind: 1, value: addSrc('"' + param.initializer.text + '"') } })
+          ast.data.expressions.push({ literal: { kind: 2, value: addSrc(param.initializer.text) } })
         } else if (param.initializer.kind === ts.SyntaxKind.TrueKeyword) {
           defaultValueId = ast.data.expressions.length
-          ast.data.expressions.push({ literal: { kind: 0, value: addSrc("true") } })
+          ast.data.expressions.push({ literal: { kind: 4, value: addSrc("true") } })
         } else if (param.initializer.kind === ts.SyntaxKind.FalseKeyword) {
           defaultValueId = ast.data.expressions.length
-          ast.data.expressions.push({ literal: { kind: 0, value: addSrc("false") } })
+          ast.data.expressions.push({ literal: { kind: 4, value: addSrc("false") } })
         }
       }
       const argTypeExpr = ast.data.expressions.length
@@ -331,6 +329,12 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   const checker = program.getTypeChecker()
 
   ts.forEachChild(sourceFile, function visit(node: ts.Node) {
+    if (!ast.data.types) ast.data.types = []
+    if (!ast.data.expressions) ast.data.expressions = []
+    if (!ast.data.statements) ast.data.statements = []
+    if (!ast.data.bindings) ast.data.bindings = []
+    if (!ast.data.procedures) ast.data.procedures = []
+    if (!ast.data.links) ast.data.links = []
     // Free function
     if (ts.isFunctionDeclaration(node) && node.name) {
       const symbol = checker.getSymbolAtLocation(node.name)
@@ -452,7 +456,7 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
             ast.data.expressions.push({ literal: { kind: 0, value: addSrc(member.initializer.text) } })
           } else if (ts.isStringLiteral(member.initializer)) {
             valueExprId = ast.data.expressions.length
-            ast.data.expressions.push({ literal: { kind: 1, value: addSrc('"' + member.initializer.text + '"') } })
+            ast.data.expressions.push({ literal: { kind: 2, value: addSrc(member.initializer.text) } })
           }
         } else {
           // Auto-increment: use the member index
@@ -483,18 +487,18 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
         if (decl.initializer && ts.isNumericLiteral(decl.initializer)) {
           valueExprId = ast.data.expressions.length
           ast.data.expressions.push({
-            literal: { kind: 2, value: addSrc(decl.initializer.text) },
+            literal: { kind: 1, value: addSrc(decl.initializer.text) },
           })
         } else if (decl.initializer && ts.isPrefixUnaryExpression(decl.initializer)
                    && ts.isNumericLiteral(decl.initializer.operand)) {
           valueExprId = ast.data.expressions.length
           ast.data.expressions.push({
-            literal: { kind: 2, value: addSrc(decl.initializer.getText()) },
+            literal: { kind: 1, value: addSrc(decl.initializer.getText()) },
           })
         } else if (decl.initializer && ts.isStringLiteral(decl.initializer)) {
           valueExprId = ast.data.expressions.length
           ast.data.expressions.push({
-            literal: { kind: 1, value: addSrc('"' + decl.initializer.text + '"') },
+            literal: { kind: 2, value: addSrc(decl.initializer.text) },
           })
         }
 
@@ -644,91 +648,68 @@ export function convert(sourceFile: ts.SourceFile, program: ts.Program) {
   if (lastTypeStmt !== undefined && firstOtherStmt !== undefined) {
     linkAfter(lastTypeStmt, firstOtherStmt)
   }
-  ast.data.modules[0].body = firstTypeStmt ?? firstOtherStmt
+  ast.data.modules[moduleId].body = firstTypeStmt ?? firstOtherStmt
 
   if (needsOptions) {
     const keyword = addName("import")
     const path = addSrc("std/options")
     const importStmtId = ast.data.statements.length
-    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[0].body } })
-    ast.data.modules[0].body = importStmtId
+    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[moduleId].body } })
+    ast.data.modules[moduleId].body = importStmtId
   }
 
   if (needsAsyncjs) {
     const keyword = addName("import")
     const path = addSrc("std/asyncjs")
     const importStmtId = ast.data.statements.length
-    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[0].body } })
-    ast.data.modules[0].body = importStmtId
+    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[moduleId].body } })
+    ast.data.modules[moduleId].body = importStmtId
   }
 
   if (needsJsffi) {
     const keyword = addName("import")
     const path = addSrc("std/jsffi")
     const importStmtId = ast.data.statements.length
-    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[0].body } })
-    ast.data.modules[0].body = importStmtId
+    ast.data.statements.push({ import: { keyword, path, next: ast.data.modules[moduleId].body } })
+    ast.data.modules[moduleId].body = importStmtId
   }
 
-  ast.data.modules[0].source = source
-  return ast
+  ast.data.modules[moduleId].source = source
 }
 
 //______________________________________
 // @section Entry Point
 //____________________________
-if (import.meta.main) void run()
-async function run () :Promise<void> {
-  const filename = process.argv[2]
-  if (!filename) {
-    console.error("Usage: henka-ts <file.ts>")
+if (import.meta.main) run()
+function run () :void {
+  const files = process.argv.slice(2)
+  if (files.length === 0) {
+    console.error("Usage: henka-ts <file.ts> [... files]")
     process.exit(1)
   }
 
-  const program = ts.createProgram([filename], {
+  const program = ts.createProgram(files, {
     target: ts.ScriptTarget.ESNext,
     module: ts.ModuleKind.ESNext,
     allowJs: true,
     checkJs: true,
   })
 
-  const sourceFile = program.getSourceFile(filename)
-  if (!sourceFile) { console.error("Failed to parse:", filename); process.exit(1) }
-  const ast  = convert(sourceFile, program)
-  const json = JSON.stringify(ast, null, 2)
-
-  const selfDirectory = path.dirname(process.execPath)
-  const localBinary   = selfDirectory + "/henka"
-  const localExists   = await Bun.file(localBinary).exists()
-  const pathExists    = !localExists && Bun.which("henka") !== null
-  if (!localExists && !pathExists) {
-    console.error("henka binary not found at", localBinary, "or in PATH")
-    process.exit(1)
+  const ast: astTF = {
+    root: 0,
+    data: {
+      modules: [],
+    },
   }
-  const binaryPath = localExists ? localBinary : "henka"
 
-  const result = Bun.spawn([binaryPath, "--stdin"], {
-    stdin: new TextEncoder().encode(json),
-    stdout: "pipe",
-    stderr: "inherit",
-  })
-
-  const stdout   = (await new Response(result.stdout).text()).trim()
-  const exitCode = await result.exited
-  if (exitCode !== 0) process.exit(exitCode)
-
-  const lines       = stdout.split("\n")
-  const outputPath  = lines[1]
-  const isDirectory = fs.statSync(outputPath).isDirectory()
-
-  const outputFiles: string[] = isDirectory
-    ? [...new Bun.Glob("**/*.nim").scanSync(outputPath)].map(entry => outputPath + "/" + entry)
-    : [outputPath]
-
-  if (outputFiles.length > 0) {
-    const firstFile = outputFiles[0]
-    const bindingsPath = path.dirname(firstFile) + "/bindings.nim"
-    fs.renameSync(firstFile, bindingsPath)
+  for (const filename of files) {
+    const sourceFile = program.getSourceFile(filename)
+    if (!sourceFile) { console.error("Failed to parse:", filename); process.exit(1) }
+    const moduleId = ast.data.modules.length
+    ast.data.modules.push({ path: filename, source: "" })
+    convert(ast, moduleId, sourceFile, program)
   }
+
+  console.log(JSON.stringify(ast, null, 2))
 }
 
