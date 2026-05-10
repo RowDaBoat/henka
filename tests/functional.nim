@@ -119,8 +119,17 @@ const jsFeatures = [
   (check, "generic_interfaces"),
   (check, "forward_references"),
   (check, "identifiers_special"),
-  (check, "external_types"),
-  (check, "tuples"),
+  (check, "types_external"),
+  (check, "type_tuple"),
+  (check, "type_null"),
+  (check, "type_undefined"),
+  (check, "type_never"),
+  (check, "type_bigint"),
+  (check, "type_keyof"),
+  (check, "type_template_literal"),
+  (check, "multi_inherit_children"),
+  (check, "interface_merging"),
+  (check, "generic_no_args"),
 ]
 
 suite "Henka JS should support":

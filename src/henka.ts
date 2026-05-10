@@ -8,6 +8,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   let needsAsyncjs = false
   let needsOptions = false
   let needsUndefined = false
+  let needsNull = false
   let syntheticCount = 0
   const objectTypeIds = new Map<string, number>()
   const emittedProcs = new Map<string, { procId: number, literalsId: number | null, literalParamIdx: number, hasSelf: boolean, paramCount: number }>()
@@ -146,11 +147,21 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         ast.data.types.push({ primitive: { name: addName("Undefined") } })
         needsUndefined = true
         break
+      case ts.SyntaxKind.BigIntKeyword:
+        ast.data.types.push({ primitive: { name: addName("BiggestInt") } })
+        break
       case ts.SyntaxKind.AnyKeyword:
       case ts.SyntaxKind.ObjectKeyword:
       case ts.SyntaxKind.UnknownKeyword:
+      case ts.SyntaxKind.TypeOperator:
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
         needsJsffi = true
+        break
+      case ts.SyntaxKind.NeverKeyword:
+        ast.data.types.push({ primitive: { name: addName("void") } })
+        break
+      case ts.SyntaxKind.TemplateLiteralType:
+        ast.data.types.push({ primitive: { name: addName("cstring") } })
         break
       case ts.SyntaxKind.TypeReference: {
         const refNode = node as ts.TypeReferenceNode
@@ -302,6 +313,9 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         } else if (literal.kind === ts.SyntaxKind.TrueKeyword ||
                    literal.kind === ts.SyntaxKind.FalseKeyword) {
           ast.data.types.push({ primitive: { name: addName("bool") } })
+        } else if (literal.kind === ts.SyntaxKind.NullKeyword) {
+          ast.data.types.push({ primitive: { name: addName("Null") } })
+          needsNull = true
         } else {
           ast.data.types.push({ primitive: { name: addName(typeText) } })
         }
@@ -1121,6 +1135,14 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   }
   const firstTypeStmt = firstRootTypeStmt ?? firstChildTypeStmt
   ast.data.modules[moduleId].body = firstTypeStmt ?? firstOtherStmt
+
+  if (needsNull) {
+    const passthroughLoc = addSrc("type Null* = distinct JsObject\n")
+    const stmtId = ast.data.statements.length
+    ast.data.statements.push({ passthrough: { location: passthroughLoc, next: ast.data.modules[moduleId].body } })
+    ast.data.modules[moduleId].body = stmtId
+    needsJsffi = true
+  }
 
   if (needsUndefined) {
     const passthroughLoc = addSrc("type Undefined* = distinct pointer\n")

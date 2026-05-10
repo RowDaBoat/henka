@@ -259,6 +259,14 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
 - [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
 - [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.
+- [x] `null` as standalone type — mapped to `Null` (`distinct JsObject`), emits type declaration like `Undefined`
+- [x] `bigint` type — mapped to `BiggestInt`
+- [x] `never` type — mapped to `void`
+- [x] `keyof T` operator type — mapped to `JsObject`
+- [x] Template literal types (`section-${string}`) — mapped to `cstring`
+- [ ] Multi-inherit parent children — children that `object of` a `distinct JsObject` parent fail to compile
+- [ ] Interface declaration merging — duplicate fields from multiple `interface X {}` blocks
+- [ ] Generic types without type args — `MessageEvent`, `ReadableStream` etc. used without `[T]` produce "not a concrete type" errors
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] (maybe?) Automatic ES module generation
 - [ ] TS utility types: proper mappings (investigate each)
