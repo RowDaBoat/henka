@@ -233,7 +233,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 ### Known issues (real-world testing: WebGPU, WebGL, lib.dom.d.ts)
 - [ ] `__` prefix identifiers — Nim rejects leading underscore
 - [ ] `__` prefix fields — TS-internal branding fields should be skipped
-- [ ] Quoted/string-literal field names — `"abort": Event` produces invalid Nim
+- [x] Quoted/string-literal field names — quotes stripped from string-literal property names
 - [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
 - [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
 - [ ] Generic type parameters in methods — `K extends keyof T` produces literal `K`

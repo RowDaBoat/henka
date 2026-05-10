@@ -16,3 +16,9 @@ export interface Config {
   host: string
   port: number
 }
+
+export interface EventTarget {
+  "abort": string
+  "click": string
+  normal: string
+}

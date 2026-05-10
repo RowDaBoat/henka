@@ -14,3 +14,8 @@ discard storage.delete("key")
 var config: Config
 config.host = "localhost"
 config.port = 8080.0
+
+var target: EventTarget
+target.abort = "event"
+target.click = "event"
+target.normal = "text"

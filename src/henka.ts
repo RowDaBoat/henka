@@ -12,6 +12,12 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   const objectTypeIds = new Map<string, number>()
   const namespaceStack: string[] = []
 
+  function unquote(name: string): string {
+    if ((name.startsWith('"') && name.endsWith('"')) || (name.startsWith("'") && name.endsWith("'")))
+      return name.slice(1, -1)
+    return name
+  }
+
   function prefixed(name: string): string {
     if (namespaceStack.length === 0) return name
     return namespaceStack.join("_") + "_" + name
@@ -176,7 +182,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let prevField: number | undefined
         for (const member of members) {
           if (ts.isPropertySignature(member) && member.name) {
-            const fieldName = addName(member.name.getText())
+            const fieldName = addName(unquote(member.name.getText()))
             let fieldTypeId = mapType(member.type, checker)
             if (member.questionToken) {
               ast.data.types.push({ array: { name: addName("Option"), element: fieldTypeId } })
@@ -557,7 +563,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let prevField: number | undefined
         for (const member of node.members) {
           if (ts.isPropertySignature(member) && member.name) {
-            const fieldName = addName(member.name.getText())
+            const fieldName = addName(unquote(member.name.getText()))
             let fieldTypeId = mapType(member.type, checker)
             if (member.questionToken) {
               ast.data.types.push({ array: { name: addName("Option"), element: fieldTypeId } })
