@@ -243,9 +243,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier
 - [x] TS utility types — all known wrappers, `object`, and `unknown` keywords. Currently mapped to `JsObject`
 - [x] Overload deduplication — literal type params (string, number, bool) that collapse generate synthetic `distinct` types (`ProcName_paramName`) with typed consts. Handles multi-param, tracks param position. Return type becomes `JsObject`.
-- [ ] Overload dedup: preserve return type when all overloads have the same return (might not be possible, Nim rejects overloads that differ only in return type)
 - [x] Multi-inheritance interfaces — emit as `distinct JsObject` with field getter procs. User casts to parent types to access their methods.
-- [ ] Multi-inheritance ergonomics — duplicate parent methods onto the child type so casting isn't needed
 - [x] TS callback types in fields — `ParenthesizedType` unwrapped, `this` param skipped in `FunctionType` handler
 - [x] Generic types in `object of` clause — `ExpressionWithTypeArguments` now handled in `mapType`, renders `Collection[cstring]` correctly
 - [x] Generic interface declarations — `interface Collection<T>` emits `type Collection*[T] = object` with generic bindings. Methods get `[T]` params and `self: Collection[T]` instantiation.
@@ -257,15 +255,20 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Tuple types — TS `[A, B]` → unnamed `(A, B)`, named `[a: A, b: B]` → `tuple[a: A, b: B]`. Works in return types, type aliases, and interface methods.
 - [x] UIEventInit inheritance cascade — fixed by topological sort of child type chain (DFS post-order). Root types (no parent) emit first, then child types in dependency order.
 - [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
-- [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
 - [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.
 - [x] `null` as standalone type — mapped to `Null` (`distinct JsObject`), emits type declaration like `Undefined`
 - [x] `bigint` type — mapped to `BiggestInt`
 - [x] `never` type — mapped to `void`
 - [x] `keyof T` operator type — mapped to `JsObject`
 - [x] Template literal types (`section-${string}`) — mapped to `cstring`
-- [ ] Multi-inherit parent children — children that `object of` a `distinct JsObject` parent fail to compile
 - [x] Interface declaration merging — duplicate declarations merged by appending new fields to existing type's binding chain via `objectTypeIds` lookup
+
+
+### Typescript-specific hardcases
+- [ ] Multi-inherit parent children — children that `object of` a `distinct JsObject` parent fail to compile
+- [ ] Multi-inheritance ergonomics — duplicate parent methods onto the child type so casting isn't needed
+- [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
+- [ ] Overload dedup: preserve return type when all overloads have the same return (might not be possible, Nim rejects overloads that differ only in return type)
 - [ ] Generic types without type args — `MessageEvent`, `ReadableStream` etc. used without `[T]` produce "not a concrete type" errors
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] (maybe?) Automatic ES module generation
