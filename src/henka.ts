@@ -19,8 +19,9 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   }
 
   function prefixed(name: string): string {
-    if (namespaceStack.length === 0) return name
-    return namespaceStack.join("_") + "_" + name
+    const sanitized = sanitize(name)
+    if (namespaceStack.length === 0) return sanitized
+    return namespaceStack.join("_") + "_" + sanitized
   }
 
   function jsPattern(name: string): string {
@@ -32,6 +33,12 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     const start = source.length
     source += text
     return { start, end: source.length }
+  }
+
+  function sanitize(name: string): string {
+    if (name.startsWith("__")) return "internal" + name.slice(1)
+    if (name.startsWith("_"))  return "priv" + name
+    return name
   }
 
   function addName(text: string) {
@@ -137,7 +144,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
               resolvedName = fullName.replace(/\./g, "_")
             }
           }
-          ast.data.types.push({ primitive: { name: addName(resolvedName) } })
+          ast.data.types.push({ primitive: { name: addName(sanitize(resolvedName)) } })
         }
         break
       }
@@ -182,7 +189,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let prevField: number | undefined
         for (const member of members) {
           if (ts.isPropertySignature(member) && member.name) {
-            const fieldName = addName(unquote(member.name.getText()))
+            const fieldName = addName(sanitize(unquote(member.name.getText())))
             let fieldTypeId = mapType(member.type, checker)
             if (member.questionToken) {
               ast.data.types.push({ array: { name: addName("Option"), element: fieldTypeId } })
@@ -563,7 +570,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let prevField: number | undefined
         for (const member of node.members) {
           if (ts.isPropertySignature(member) && member.name) {
-            const fieldName = addName(unquote(member.name.getText()))
+            const fieldName = addName(sanitize(unquote(member.name.getText())))
             let fieldTypeId = mapType(member.type, checker)
             if (member.questionToken) {
               ast.data.types.push({ array: { name: addName("Option"), element: fieldTypeId } })

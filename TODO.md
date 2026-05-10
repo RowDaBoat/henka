@@ -231,8 +231,8 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Overloaded functions → native Nim overloads
 
 ### Known issues (real-world testing: WebGPU, WebGL, lib.dom.d.ts)
-- [ ] `__` prefix identifiers — Nim rejects leading underscore
-- [ ] `__` prefix fields — TS-internal branding fields should be skipped
+- [x] `__` prefix identifiers — sanitized: `__x` → `internal_x`, `_x` → `priv_x`
+- [x] `__` prefix fields — sanitized same as identifiers, not skipped
 - [x] Quoted/string-literal field names — quotes stripped from string-literal property names
 - [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
 - [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text

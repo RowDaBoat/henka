@@ -22,3 +22,4 @@ export interface EventTarget {
   "click": string
   normal: string
 }
+

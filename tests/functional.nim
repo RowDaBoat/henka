@@ -93,6 +93,7 @@ const js = "js"
 const jsHeader = "header.ts"
 const henkaTsBinary = currentSourcePath().parentDir().parentDir() / "bin" / "henka-js"
 const jsFeatures = [
+  (check, "identifiers"),
   (check, "interfaces"),
   (check, "any"),
   (check, "arrays"),
