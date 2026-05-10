@@ -95,6 +95,7 @@ const henkaTsBinary = currentSourcePath().parentDir().parentDir() / "bin" / "hen
 const jsFeatures = [
   (check, "identifiers"),
   (check, "interfaces"),
+  (check, "variables"),
   (check, "any"),
   (check, "arrays"),
   (check, "async"),

@@ -242,7 +242,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Overload deduplication — identical signatures after literal type collapse
 - [ ] Multi-extends interfaces — only first base inherited, rest ignored
 - [x] Empty interfaces as opaque handles — `distinct JsObject` when no fields, no methods, no inheritance
-- [ ] Namespace `const` with no initializer — produces invalid Nim
+- [x] Const with no initializer — emits as `var` with `{.importjs.}` pragma for runtime access
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] No automatic ES module generation
 - [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier

@@ -528,6 +528,12 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           ast.data.expressions.push({
             literal: { kind: 2, value: addSrc(decl.initializer.text) },
           })
+        } else if (decl.initializer && decl.initializer.kind === ts.SyntaxKind.TrueKeyword) {
+          valueExprId = ast.data.expressions.length
+          ast.data.expressions.push({ literal: { kind: 4, value: addSrc("true") } })
+        } else if (decl.initializer && decl.initializer.kind === ts.SyntaxKind.FalseKeyword) {
+          valueExprId = ast.data.expressions.length
+          ast.data.expressions.push({ literal: { kind: 4, value: addSrc("false") } })
         }
 
         let typeId: number | undefined
@@ -547,11 +553,22 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           ast.data.expressions.push({ type: { id: typeId } })
         }
         const bindingId = ast.data.bindings.length
-        ast.data.bindings.push({
-          name: varName,
-          dataType: typeExprId,
-          value: valueExprId,
-        })
+        if (valueExprId === undefined && decl.initializer === undefined) {
+          const pragmaId = addImportjsPragma(jsPattern(decl.name.text))
+          ast.data.bindings.push({
+            name: varName,
+            dataType: typeExprId,
+            runtime: true,
+            mutable: true,
+            pragmas: pragmaId,
+          })
+        } else {
+          ast.data.bindings.push({
+            name: varName,
+            dataType: typeExprId,
+            value: valueExprId,
+          })
+        }
 
         const stmtId = ast.data.statements.length
         ast.data.statements.push({ variable: { id: bindingId } })
