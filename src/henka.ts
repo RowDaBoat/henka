@@ -265,6 +265,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         break
       case ts.SyntaxKind.ParenthesizedType:
         return mapType((node as ts.ParenthesizedTypeNode).type, checker)
+      case ts.SyntaxKind.IntersectionType:
+        ast.data.types.push({ primitive: { name: addName("JsObject") } })
+        needsJsffi = true
+        break
       case ts.SyntaxKind.ExpressionWithTypeArguments: {
         const exprNode = node as ts.ExpressionWithTypeArguments
         const baseName = exprNode.expression.getText(node.getSourceFile())
