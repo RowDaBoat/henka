@@ -265,7 +265,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] `keyof T` operator type — mapped to `JsObject`
 - [x] Template literal types (`section-${string}`) — mapped to `cstring`
 - [ ] Multi-inherit parent children — children that `object of` a `distinct JsObject` parent fail to compile
-- [ ] Interface declaration merging — duplicate fields from multiple `interface X {}` blocks
+- [x] Interface declaration merging — duplicate declarations merged by appending new fields to existing type's binding chain via `objectTypeIds` lookup
 - [ ] Generic types without type args — `MessageEvent`, `ReadableStream` etc. used without `[T]` produce "not a concrete type" errors
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] (maybe?) Automatic ES module generation

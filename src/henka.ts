@@ -803,6 +803,30 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           }
         }
 
+        // Merge into existing interface declaration
+        if (objectTypeIds.has(ifaceName)) {
+          const existingTypeId = objectTypeIds.get(ifaceName)!
+          const existingType = ast.data.types[existingTypeId]
+          if (existingType.object && firstField !== undefined) {
+            if (existingType.object.fields === undefined) {
+              existingType.object.fields = firstField
+            } else {
+              let lastField = existingType.object.fields
+              while (ast.data.bindings[lastField].next !== undefined) lastField = ast.data.bindings[lastField].next!
+              ast.data.bindings[lastField].next = firstField
+            }
+          }
+          // Emit methods from merged declaration
+          for (const member of node.members) {
+            if (!ts.isMethodSignature(member) || !member.name) continue
+            const methodName = member.name.getText()
+            const selfTypeId = ast.data.types.length
+            ast.data.types.push({ primitive: { name: addName(ifaceName) } })
+            emitOrDedup(prefixed(methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, node.typeParameters, ifaceName + "." + methodName)
+          }
+          return
+        }
+
         // Emit type
         let linkRange: { start: number, end: number } | undefined
         if (node.heritageClauses) {
