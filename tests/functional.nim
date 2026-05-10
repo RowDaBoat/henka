@@ -2,8 +2,9 @@ import std/[unittest, os, osproc, strformat, strutils]
 import ../src/henka
 
 
-proc nim(action: string, file: string): bool =
-  let (output, exitCode) = execCmdEx(&"nim {action} {quoteShell(file)}")
+proc nim(action: string, file: string, backend: string = ""): bool =
+  let backendFlag = if backend.len > 0: &"--backend:{backend} " else: ""
+  let (output, exitCode) = execCmdEx(&"nim {action} {backendFlag}{quoteShell(file)}")
   if exitCode != 0:
     echo output
   result = exitCode == 0
@@ -85,4 +86,38 @@ suite "Henka C++ should support":
       let workdir = baseDir/cpp/feature
       let bindingsSource = generate(workdir/cppHeader, isCpp = true)
       (workdir/bindings).writeFile(bindingsSource)
-      check nim(action, workdir/target)
+      check nim(action, workdir/target, "cpp")
+
+
+const js = "js"
+const jsHeader = "header.ts"
+const henkaTsBinary = currentSourcePath().parentDir().parentDir() / "bin" / "henka-js"
+const jsFeatures = [
+  (check, "interfaces"),
+  (check, "any"),
+  (check, "arrays"),
+  (check, "async"),
+  (check, "callbacks"),
+  (check, "classes"),
+  (check, "defaults"),
+  (check, "enums"),
+  (check, "generics"),
+  (check, "inheritance"),
+  (check, "namespaces"),
+  (check, "nested"),
+  (check, "optionals"),
+  (check, "overloads"),
+  (check, "rest"),
+  (check, "unions"),
+]
+
+suite "Henka JS should support":
+  for (action, feature) in jsFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/js/feature
+      let (json, exitCode) = execCmdEx(henkaTsBinary & " " & quoteShell(workdir/jsHeader))
+      check exitCode == 0
+      let output = fromJson(json)
+      let bindingsSource = if output.modules.len > 0: output.modules[0].definitions else: ""
+      (workdir/bindings).writeFile(bindingsSource)
+      check nim(action, workdir/target, "js")
