@@ -26,3 +26,11 @@ export interface Writable {
 export interface ReadWritable extends Readable {
   write(data: string): void
 }
+
+export interface Collection<T> {
+  get(index: number): T
+}
+
+export interface StringList extends Collection<string> {
+  join(separator: string): string
+}

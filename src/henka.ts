@@ -260,6 +260,26 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
         needsJsffi = true
         break
+      case ts.SyntaxKind.ExpressionWithTypeArguments: {
+        const exprNode = node as ts.ExpressionWithTypeArguments
+        const baseName = exprNode.expression.getText(node.getSourceFile())
+        const typeId = ast.data.types.length
+        ast.data.types.push({ primitive: { name: addName(sanitize(baseName)) } })
+        if (exprNode.typeArguments && exprNode.typeArguments.length > 0) {
+          let firstExpr: number | undefined
+          let prevExpr: number | undefined
+          for (const arg of exprNode.typeArguments) {
+            const argTypeId = mapType(arg, checker)
+            const exprId = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: argTypeId } })
+            if (prevExpr !== undefined) ast.data.expressions[prevExpr].type.next = exprId
+            if (firstExpr === undefined) firstExpr = exprId
+            prevExpr = exprId
+          }
+          ast.data.types[typeId].primitive.instantiation = firstExpr
+        }
+        return typeId
+      }
       default:
         ast.data.types.push({ primitive: { name: addName(typeText) } })
     }
@@ -708,8 +728,20 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           typeId = ast.data.types.length
           ast.data.types.push({ alias: { name: typeName, target: distinctTargetId } })
         } else {
+          let firstGeneric: number | undefined
+          if (node.typeParameters && node.typeParameters.length > 0) {
+            let prevGeneric: number | undefined
+            for (const tp of node.typeParameters) {
+              const genericName = addName(tp.name.text)
+              const genericId = ast.data.bindings.length
+              ast.data.bindings.push({ name: genericName, private: true })
+              if (prevGeneric !== undefined) ast.data.bindings[prevGeneric].next = genericId
+              if (firstGeneric === undefined) firstGeneric = genericId
+              prevGeneric = genericId
+            }
+          }
           typeId = ast.data.types.length
-          ast.data.types.push({ object: { name: typeName, fields: firstField, link: linkRange, pragmas: linkRange ? addInheritablePragma() : undefined } })
+          ast.data.types.push({ object: { name: typeName, fields: firstField, link: linkRange, pragmas: linkRange ? addInheritablePragma() : undefined, generics: firstGeneric } })
         }
         objectTypeIds.set(ifaceName, typeId)
         const stmtId = ast.data.statements.length
@@ -749,12 +781,26 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         // Self type for method signatures
         const selfTypeId = ast.data.types.length
         ast.data.types.push({ primitive: { name: addName(ifaceName) } })
+        if (node.typeParameters && node.typeParameters.length > 0) {
+          let firstInstExpr: number | undefined
+          let prevInstExpr: number | undefined
+          for (const tp of node.typeParameters) {
+            const paramTypeId = ast.data.types.length
+            ast.data.types.push({ primitive: { name: addName(tp.name.text) } })
+            const exprId = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: paramTypeId } })
+            if (prevInstExpr !== undefined) ast.data.expressions[prevInstExpr].type.next = exprId
+            if (firstInstExpr === undefined) firstInstExpr = exprId
+            prevInstExpr = exprId
+          }
+          ast.data.types[selfTypeId].primitive.instantiation = firstInstExpr
+        }
 
         // Emit method signatures as procs
         for (const member of node.members) {
           if (!ts.isMethodSignature(member) || !member.name) continue
           const methodName = member.name.getText()
-          emitOrDedup(prefixed(methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, undefined, ifaceName + "." + methodName)
+          emitOrDedup(prefixed(methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, node.typeParameters, ifaceName + "." + methodName)
         }
       }
 

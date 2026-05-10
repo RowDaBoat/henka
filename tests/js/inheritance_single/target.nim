@@ -23,3 +23,9 @@ writable.write("data")
 
 var readWritable: ReadWritable
 readWritable.write("data")
+
+var collection: Collection[cstring]
+discard collection.get(0.0)
+
+var list: StringList
+discard list.join(", ")
