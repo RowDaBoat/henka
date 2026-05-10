@@ -238,7 +238,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
 - [ ] Generic type parameters in methods — `K extends keyof T` produces literal `K`
 - [ ] String union types — `"default" | "high-performance"` should map to `cstring`
-- [ ] `null` in union types — `T | null` should be `Option[T]`
+- [x] `null` in union types — `T | null` maps to `Option[T]`, filtered alongside `undefined`
 - [ ] Overload deduplication — identical signatures after literal type collapse
 - [ ] Multi-extends interfaces — only first base inherited, rest ignored
 - [x] Empty interfaces as opaque handles — `distinct JsObject` when no fields, no methods, no inheritance

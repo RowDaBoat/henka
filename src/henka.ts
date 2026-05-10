@@ -199,7 +199,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       }
       case ts.SyntaxKind.UnionType: {
         const unionNode = node as ts.UnionTypeNode
-        const nonUndefined = unionNode.types.filter(t => t.kind !== ts.SyntaxKind.UndefinedKeyword)
+        const nonUndefined = unionNode.types.filter(t =>
+          t.kind !== ts.SyntaxKind.UndefinedKeyword &&
+          !(ts.isLiteralTypeNode(t) && t.literal.kind === ts.SyntaxKind.NullKeyword)
+        )
         if (nonUndefined.length === 1) {
           const innerTypeId = mapType(nonUndefined[0], checker)
           ast.data.types.push({ array: { name: addName("Option"), element: innerTypeId } })

@@ -9,3 +9,6 @@ export interface Config {
 }
 
 export function configure(host: string, port?: number, timeout?: number): void {}
+
+export function findOrNull(key: string): string | null { return null }
+export function tryCount(input: string): number | null { return null }
