@@ -242,7 +242,8 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Const with no initializer — emits as `var` with `{.importjs.}` pragma for runtime access
 - [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier
 - [x] TS utility types — all known wrappers, `object`, and `unknown` keywords. Currently mapped to `JsObject`
-- [ ] Overload deduplication — when multiple overloads have string literal params that collapse to `cstring`, generate a synthetic `distinct cstring` type (`ProcName_paramName`) with consts for each value. Keep overloads with distinct return types; only dedup when signatures are truly identical after collapse.
+- [x] Overload deduplication — literal type params (string, number, bool) that collapse generate synthetic `distinct` types (`ProcName_paramName`) with typed consts. Handles multi-param, tracks param position. Return type becomes `JsObject`.
+- [ ] Overload dedup: preserve return type when all overloads have the same return (might not be possible, Nim rejects overloads that differ only in return type)
 - [x] Multi-inheritance interfaces — emit as `distinct JsObject` with field getter procs. User casts to parent types to access their methods.
 - [ ] Multi-inheritance ergonomics — duplicate parent methods onto the child type so casting isn't needed
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
