@@ -117,6 +117,8 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         needsUndefined = true
         break
       case ts.SyntaxKind.AnyKeyword:
+      case ts.SyntaxKind.ObjectKeyword:
+      case ts.SyntaxKind.UnknownKeyword:
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
         needsJsffi = true
         break

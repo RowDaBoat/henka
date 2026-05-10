@@ -235,17 +235,43 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] `__` prefix fields — sanitized same as identifiers, not skipped
 - [x] Quoted/string-literal field names — quotes stripped from string-literal property names
 - [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
-- [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
 - [x] Generic type parameters — simple `<T>` emits as Nim generic `[T]`, indexed access types (`Config[K]`) fall back to `JsObject`
 - [x] String union types — `distinct cstring` + typed consts with `TypeName("value")` casts
 - [x] `null` in union types — `T | null` maps to `Option[T]`, filtered alongside `undefined`
-- [ ] Overload deduplication — identical signatures after literal type collapse
-- [ ] Multi-extends interfaces — only first base inherited, rest ignored
 - [x] Empty interfaces as opaque handles — `distinct JsObject` when no fields, no methods, no inheritance
 - [x] Const with no initializer — emits as `var` with `{.importjs.}` pragma for runtime access
-- [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
-- [ ] No automatic ES module generation
 - [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier
+- [x] TS utility types — all known wrappers, `object`, and `unknown` keywords. Currently mapped to `JsObject`
+- [ ] Overload deduplication — identical signatures after literal type collapse
+- [ ] Multi-extends interfaces — only first base inherited, rest ignored
+- [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
+- [ ] (maybe?) Automatic ES module generation
+- [ ] TS utility types: proper mappings (investigate each)
+  - [ ] `Partial<T>` — could be `T`
+  - [ ] `Required<T>` — could be `T`
+  - [ ] `Readonly<T>` — could be `T`
+  - [ ] `NonNullable<T>` — could be `T`
+  - [ ] `Pick<T, K>` — could be `T`
+  - [ ] `Omit<T, K>` — could be `T`
+  - [ ] `Record<K, V>` — could be `JsAssoc[K, V]` or custom type
+  - [ ] `Extract<T, U>` — could be `U`
+  - [ ] `Exclude<T, U>` — could be `T`
+  - [ ] `ReturnType<T>` — could resolve from function type
+  - [ ] `Parameters<T>` — could resolve to tuple
+  - [ ] `ConstructorParameters<T>` — could resolve to tuple
+  - [ ] `InstanceType<T>` — could resolve to class type
+  - [ ] `Awaited<T>` — could be `T`
+  - [ ] `Iterable<T>` — could be `seq[T]` or custom `JsIterable[T]`
+  - [ ] `Iterator<T>` — could be custom type with `next()` binding
+  - [ ] `IterableIterator<T>` — could be custom type or `seq[T]`
+  - [ ] `AsyncIterable<T>` — could be custom type
+  - [ ] `AsyncIterator<T>` — could be custom type
+  - [ ] `AsyncIterableIterator<T>` — could be custom type
+  - [ ] `Map<K, V>` — could be `distinct JsObject` with method bindings
+  - [ ] `Set<T>` — could be `distinct JsObject` with method bindings
+  - [ ] `WeakMap<K, V>` — could be `distinct JsObject` with method bindings
+  - [ ] `WeakSet<T>` — could be `distinct JsObject` with method bindings
+  - [ ] `ThisType<T>` — could skip/ignore (marker type only)
 
 
 ## Documentation
