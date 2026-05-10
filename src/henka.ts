@@ -137,6 +137,11 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           const symbol = checker.getSymbolAtLocation(refNode.typeName)
           let resolvedName = typeText
           if (symbol) {
+            const isTypeParam = symbol.declarations?.some(d => ts.isTypeParameterDeclaration(d)) ?? false
+            if (isTypeParam) {
+              ast.data.types.push({ primitive: { name: addName(resolvedName) } })
+              break
+            }
             let fullName = checker.getFullyQualifiedName(symbol)
             const quoteEnd = fullName.lastIndexOf('"')
             if (quoteEnd >= 0) fullName = fullName.substring(quoteEnd + 2)
@@ -247,6 +252,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         }
         break
       }
+      case ts.SyntaxKind.IndexedAccessType:
+        ast.data.types.push({ primitive: { name: addName("JsObject") } })
+        needsJsffi = true
+        break
       default:
         ast.data.types.push({ primitive: { name: addName(typeText) } })
     }
@@ -265,7 +274,14 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     return pragmaId
   }
 
-  function addProc(name: string, params: ts.NodeArray<ts.ParameterDeclaration>, retTypeNode: ts.TypeNode | undefined, pattern: string, selfType?: number) {
+  function addProc(
+    name        : string,
+    params      : ts.NodeArray<ts.ParameterDeclaration>,
+    retTypeNode : ts.TypeNode | undefined,
+    pattern     : string,
+    selfType?   : number,
+    typeParams? : ts.NodeArray<ts.TypeParameterDeclaration>,
+  ) {
     if (!ast.data.expressions) ast.data.expressions = []
     if (!ast.data.bindings) ast.data.bindings = []
     if (!ast.data.procedures) ast.data.procedures = []
@@ -340,9 +356,23 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       ast.data.pragmas.push({ key: discardableKey, next: pragmaId })
       pragmaId = discardableId
     }
+    let firstGeneric: number | undefined
+    if (typeParams && typeParams.length > 0) {
+      let prevGeneric: number | undefined
+      for (const tp of typeParams) {
+        const genericName = addName(tp.name.text)
+        const genericId = ast.data.bindings.length
+        ast.data.bindings.push({ name: genericName, private: true })
+        if (prevGeneric !== undefined) ast.data.bindings[prevGeneric].next = genericId
+        if (firstGeneric === undefined) firstGeneric = genericId
+        prevGeneric = genericId
+      }
+    }
+
     const procId = ast.data.procedures.length
     ast.data.procedures.push({
       name: funcName,
+      generics: firstGeneric,
       arguments: firstArg,
       returnType: retType,
       pragmas: pragmaId,
@@ -368,7 +398,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       const symbol = checker.getSymbolAtLocation(node.name)
       const isOverloadImpl = node.body && symbol && (symbol.declarations?.length ?? 0) > 1
       if (!isOverloadImpl) {
-        addProc(prefixed(node.name.text), node.parameters, node.type, jsPattern(node.name.text) + "(@)")
+        addProc(prefixed(node.name.text), node.parameters, node.type, jsPattern(node.name.text) + "(@)", undefined, node.typeParameters)
       }
     }
 

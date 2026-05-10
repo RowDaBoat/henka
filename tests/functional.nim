@@ -111,6 +111,7 @@ const jsFeatures = [
   (check, "overloads"),
   (check, "rest"),
   (check, "unions"),
+  (check, "generics_params"),
 ]
 
 suite "Henka JS should support":
