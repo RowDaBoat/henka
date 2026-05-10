@@ -7,6 +7,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   let needsJsffi = false
   let needsAsyncjs = false
   let needsOptions = false
+  let needsUndefined = false
   let syntheticCount = 0
   const objectTypeIds = new Map<string, number>()
   const namespaceStack: string[] = []
@@ -97,6 +98,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         break
       case ts.SyntaxKind.VoidKeyword:
         ast.data.types.push({ primitive: { name: addName("void") } })
+        break
+      case ts.SyntaxKind.UndefinedKeyword:
+        ast.data.types.push({ primitive: { name: addName("Undefined") } })
+        needsUndefined = true
         break
       case ts.SyntaxKind.AnyKeyword:
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
@@ -314,7 +319,14 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       prevArg = bindingId
     }
 
-    const pragmaId = addImportjsPragma(pattern)
+    let pragmaId = addImportjsPragma(pattern)
+    if (retTypeNode && retTypeNode.kind === ts.SyntaxKind.UndefinedKeyword) {
+      const discardableKey = ast.data.expressions.length
+      ast.data.expressions.push({ identifier: { name: addName("discardable") } })
+      const discardableId = ast.data.pragmas.length
+      ast.data.pragmas.push({ key: discardableKey, next: pragmaId })
+      pragmaId = discardableId
+    }
     const procId = ast.data.procedures.length
     ast.data.procedures.push({
       name: funcName,
@@ -662,6 +674,13 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     linkAfter(lastTypeStmt, firstOtherStmt)
   }
   ast.data.modules[moduleId].body = firstTypeStmt ?? firstOtherStmt
+
+  if (needsUndefined) {
+    const passthroughLoc = addSrc("type Undefined* = distinct pointer\n")
+    const stmtId = ast.data.statements.length
+    ast.data.statements.push({ passthrough: { location: passthroughLoc, next: ast.data.modules[moduleId].body } })
+    ast.data.modules[moduleId].body = stmtId
+  }
 
   if (needsOptions) {
     const keyword = addName("import")

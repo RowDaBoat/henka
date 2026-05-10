@@ -15,3 +15,11 @@ let found: Option[cstring] = findOrNull("key")
 let count: Option[cdouble] = tryCount("input")
 discard found
 discard count
+
+clear()
+let cleared: Undefined = clear()
+discard cleared
+
+var store: NullableStore
+let val: Option[Undefined] = store.value
+discard val

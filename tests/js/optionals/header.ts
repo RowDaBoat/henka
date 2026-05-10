@@ -12,3 +12,9 @@ export function configure(host: string, port?: number, timeout?: number): void {
 
 export function findOrNull(key: string): string | null { return null }
 export function tryCount(input: string): number | null { return null }
+
+export function clear(): undefined {}
+
+export interface NullableStore {
+  value?: undefined
+}

@@ -234,7 +234,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] `__` prefix identifiers — Nim rejects leading underscore
 - [ ] `__` prefix fields — TS-internal branding fields should be skipped
 - [ ] Quoted/string-literal field names — `"abort": Event` produces invalid Nim
-- [ ] `undefined` as field/return type — should map to void or skip
+- [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
 - [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
 - [ ] Generic type parameters in methods — `K extends keyof T` produces literal `K`
 - [ ] String union types — `"default" | "high-performance"` should map to `cstring`
