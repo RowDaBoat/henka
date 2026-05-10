@@ -241,7 +241,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] `null` in union types — `T | null` should be `Option[T]`
 - [ ] Overload deduplication — identical signatures after literal type collapse
 - [ ] Multi-extends interfaces — only first base inherited, rest ignored
-- [ ] Empty interfaces as opaque handles — should be `distinct JsObject` not `object`
+- [x] Empty interfaces as opaque handles — `distinct JsObject` when no fields, no methods, no inheritance
 - [ ] Namespace `const` with no initializer — produces invalid Nim
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] No automatic ES module generation

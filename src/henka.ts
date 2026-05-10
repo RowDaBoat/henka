@@ -574,8 +574,18 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
             }
           }
         }
-        const typeId = ast.data.types.length
-        ast.data.types.push({ object: { name: typeName, fields: firstField, link: linkRange, pragmas: linkRange ? addInheritablePragma() : undefined } })
+        let typeId: number
+        const hasMethods = node.members.some(m => ts.isMethodSignature(m))
+        if (firstField === undefined && linkRange === undefined && !hasMethods) {
+          needsJsffi = true
+          ast.data.types.push({ primitive: { name: addName("JsObject"), keyword: addName("distinct") } })
+          const distinctTargetId = ast.data.types.length - 1
+          typeId = ast.data.types.length
+          ast.data.types.push({ alias: { name: typeName, target: distinctTargetId } })
+        } else {
+          typeId = ast.data.types.length
+          ast.data.types.push({ object: { name: typeName, fields: firstField, link: linkRange, pragmas: linkRange ? addInheritablePragma() : undefined } })
+        }
         objectTypeIds.set(ifaceName, typeId)
         const stmtId = ast.data.statements.length
         ast.data.statements.push({ type: { id: typeId } })
