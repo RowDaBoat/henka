@@ -251,6 +251,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Generic interface declarations — `interface Collection<T>` emits `type Collection*[T] = object` with generic bindings. Methods get `[T]` params and `self: Collection[T]` instantiation.
 - [x] Forward references within same file — Nim type blocks handle forward refs naturally, no reordering needed
 - [x] Special characters in identifiers — hyphens and `$` get backtick-quoted via `sanitize`, `$` in importjs patterns escaped with `$$`
+- [x] Trailing underscores and empty names — `sanitize` uses per-name counter for trailing `_` suffixes, empty names get `unnamedN`
 - [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
 - [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
 - [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.

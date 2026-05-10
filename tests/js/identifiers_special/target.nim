@@ -15,6 +15,16 @@ discard jq.`get$value`()
 `$init`()
 `$$reset`()
 
+# Empty string literal in union — gets unnamed0 const name
+setAutoFill(AutoFillBase_unnamed0)
+setAutoFill(AutoFillBase_off)
+setAutoFill(AutoFillBase_on)
+
+# Trailing underscores — get numeric suffix
+var tu: TrailingUnderscore
+discard tu.value_0
+discard tu.data_0
+
 # Nim keywords as field names — backtick quoted by slate
 var kw: Keywords
 discard kw.`type`

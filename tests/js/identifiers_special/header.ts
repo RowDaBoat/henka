@@ -14,6 +14,14 @@ export interface JQueryLike {
 export function $init(): void {}
 export function $$reset(): void {}
 
+export type AutoFillBase = "" | "off" | "on"
+export function setAutoFill(value: AutoFillBase): void {}
+
+export interface TrailingUnderscore {
+  value_: string
+  data__: string
+}
+
 export interface Keywords {
   type: string
   object: string

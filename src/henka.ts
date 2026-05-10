@@ -13,6 +13,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   const emittedProcs = new Map<string, { procId: number, literalsId: number | null, literalParamIdx: number, hasSelf: boolean, paramCount: number }>()
   const procLiterals: number[][] = []
   const externalTypes = new Map<string, number>()
+  const uniqueNames = new Map<string, number>()
   const namespaceStack: string[] = []
 
   function unquote(name: string): string {
@@ -39,10 +40,21 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   }
 
   function sanitize(name: string): string {
+    if (name.length === 0) {
+      const count = uniqueNames.get("unnamed") ?? 0
+      uniqueNames.set("unnamed", count + 1)
+      return "unnamed" + count
+    }
     let result = name
     if (result.startsWith("__")) result = "internal" + result.slice(1)
     else if (result.startsWith("_")) result = "priv" + result
     if (result.includes("-") || result.includes("$")) result = "`" + result + "`"
+    result = result.replace(/_{2,}/g, "_")
+    if (result.endsWith("_")) {
+      const count = uniqueNames.get(result) ?? 0
+      uniqueNames.set(result, count + 1)
+      result = result + count
+    }
     return result
   }
 
@@ -197,7 +209,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let prevArg: number | undefined
         for (const param of fnNode.parameters) {
           if (param.name.getText() === "this") continue
-          const argName = addName(param.name.getText())
+          const argName = addName(sanitize(param.name.getText()))
           const argTypeId = mapType(param.type, checker)
           const argTypeExpr = ast.data.expressions.length
           ast.data.expressions.push({ type: { id: argTypeId } })
@@ -411,7 +423,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     }
 
     for (const param of params) {
-      const argName = addName(param.name.getText())
+      const argName = addName(sanitize(param.name.getText()))
       let argTypeId: number
       if (param.dotDotDotToken && param.type && ts.isArrayTypeNode(param.type)) {
         const elemTypeId = mapType(param.type.elementType, checker)
@@ -876,6 +888,15 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
               ast.data.statements.push({ variable: { id: bindingId } })
               linkStmt(stmtId)
             }
+          } else {
+            needsJsffi = true
+            const jsObjectId = ast.data.types.length
+            ast.data.types.push({ primitive: { name: addName("JsObject") } })
+            const aliasId = ast.data.types.length
+            ast.data.types.push({ alias: { name: typeName, target: jsObjectId } })
+            const typeStmtId = ast.data.statements.length
+            ast.data.statements.push({ type: { id: aliasId } })
+            linkStmt(typeStmtId)
           }
         } else {
           const targetId = mapType(node.type, checker)
