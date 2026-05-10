@@ -6,3 +6,6 @@ export interface Flexible {
   value: string | number
   convert(input: string | number): string
 }
+
+export type PowerPref = "default" | "high-performance" | "low-power"
+export function setPower(pref: PowerPref): void {}

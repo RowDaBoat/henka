@@ -237,7 +237,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
 - [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
 - [x] Generic type parameters — simple `<T>` emits as Nim generic `[T]`, indexed access types (`Config[K]`) fall back to `JsObject`
-- [ ] String union types — `"default" | "high-performance"` should map to `cstring`
+- [x] String union types — `distinct cstring` + typed consts with `TypeName("value")` casts
 - [x] `null` in union types — `T | null` maps to `Option[T]`, filtered alongside `undefined`
 - [ ] Overload deduplication — identical signatures after literal type collapse
 - [ ] Multi-extends interfaces — only first base inherited, rest ignored

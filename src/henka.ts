@@ -680,20 +680,61 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       }
 
       if (ts.isTypeAliasDeclaration(node)) {
-        const targetId = mapType(node.type, checker)
-        const targetType = ast.data.types[targetId]
+        const aliasName = prefixed(node.name.text)
 
-        if (targetType.object) {
-          targetType.object.name = typeName
-          const stmtId = ast.data.statements.length
-          ast.data.statements.push({ type: { id: targetId } })
-          linkStmt(stmtId)
+        // String literal union → distinct cstring + consts
+        if (ts.isUnionTypeNode(node.type)) {
+          const members = node.type.types
+          const allStringLiterals = members.every(m =>
+            ts.isLiteralTypeNode(m) && m.literal.kind === ts.SyntaxKind.StringLiteral
+          )
+          if (allStringLiterals) {
+            const cstringTypeId = ast.data.types.length
+            ast.data.types.push({ primitive: { name: addName("cstring"), keyword: addName("distinct") } })
+            const aliasId = ast.data.types.length
+            ast.data.types.push({ alias: { name: typeName, target: cstringTypeId } })
+            const typeStmtId = ast.data.statements.length
+            ast.data.statements.push({ type: { id: aliasId } })
+            linkStmt(typeStmtId)
+
+            for (const member of members) {
+              const literal = (member as ts.LiteralTypeNode).literal as ts.StringLiteral
+              const constName = addName(aliasName + "_" + sanitize(literal.text.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())))
+              const strLiteralId = ast.data.expressions.length
+              ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literal.text) } })
+              const argBindingId = ast.data.bindings.length
+              ast.data.bindings.push({ value: strLiteralId, private: true })
+              const castNameId = ast.data.expressions.length
+              ast.data.expressions.push({ identifier: { name: addName(aliasName) } })
+              const callExprId = ast.data.expressions.length
+              ast.data.expressions.push({ call: { name: castNameId, arguments: argBindingId } })
+              const enumTypeId = ast.data.types.length
+              ast.data.types.push({ primitive: { name: addName(aliasName) } })
+              const enumTypeExpr = ast.data.expressions.length
+              ast.data.expressions.push({ type: { id: enumTypeId } })
+              const bindingId = ast.data.bindings.length
+              ast.data.bindings.push({ name: constName, dataType: enumTypeExpr, value: callExprId })
+              const stmtId = ast.data.statements.length
+              ast.data.statements.push({ variable: { id: bindingId } })
+              linkStmt(stmtId)
+            }
+          }
         } else {
-          const aliasId = ast.data.types.length
-          ast.data.types.push({ alias: { name: typeName, target: targetId } })
-          const stmtId = ast.data.statements.length
-          ast.data.statements.push({ type: { id: aliasId } })
-          linkStmt(stmtId)
+          const targetId = mapType(node.type, checker)
+          const targetType = ast.data.types[targetId]
+
+          if (targetType.object) {
+            targetType.object.name = typeName
+            const stmtId = ast.data.statements.length
+            ast.data.statements.push({ type: { id: targetId } })
+            linkStmt(stmtId)
+          } else {
+            const aliasId = ast.data.types.length
+            ast.data.types.push({ alias: { name: typeName, target: targetId } })
+            const stmtId = ast.data.statements.length
+            ast.data.statements.push({ type: { id: aliasId } })
+            linkStmt(stmtId)
+          }
         }
       }
     }
