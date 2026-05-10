@@ -246,7 +246,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Overload dedup: preserve return type when all overloads have the same return (might not be possible, Nim rejects overloads that differ only in return type)
 - [x] Multi-inheritance interfaces — emit as `distinct JsObject` with field getter procs. User casts to parent types to access their methods.
 - [ ] Multi-inheritance ergonomics — duplicate parent methods onto the child type so casting isn't needed
-- [ ] TS callback types in fields — `(this: X, ev: Y) => Z` syntax falls through as raw text instead of mapping to proc type or JsObject
+- [x] TS callback types in fields — `(this: X, ev: Y) => Z` syntax falls through as raw text instead of mapping to proc type or JsObject
 - [x] Generic types in `object of` clause — `ExpressionWithTypeArguments` now handled in `mapType`, renders `Collection[cstring]` correctly
 - [x] Generic interface declarations — `interface Collection<T>` emits `type Collection*[T] = object` with generic bindings. Methods get `[T]` params and `self: Collection[T]` instantiation.
 - [x] Forward references within same file — Nim type blocks handle forward refs naturally, no reordering needed

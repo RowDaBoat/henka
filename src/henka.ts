@@ -171,6 +171,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         let firstArg: number | undefined
         let prevArg: number | undefined
         for (const param of fnNode.parameters) {
+          if (param.name.getText() === "this") continue
           const argName = addName(param.name.getText())
           const argTypeId = mapType(param.type, checker)
           const argTypeExpr = ast.data.expressions.length
@@ -260,6 +261,8 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
         needsJsffi = true
         break
+      case ts.SyntaxKind.ParenthesizedType:
+        return mapType((node as ts.ParenthesizedTypeNode).type, checker)
       case ts.SyntaxKind.ExpressionWithTypeArguments: {
         const exprNode = node as ts.ExpressionWithTypeArguments
         const baseName = exprNode.expression.getText(node.getSourceFile())
