@@ -38,9 +38,11 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   }
 
   function sanitize(name: string): string {
-    if (name.startsWith("__")) return "internal" + name.slice(1)
-    if (name.startsWith("_"))  return "priv" + name
-    return name
+    let result = name
+    if (result.startsWith("__")) result = "internal" + result.slice(1)
+    else if (result.startsWith("_")) result = "priv" + result
+    if (result.includes("-") || result.includes("$")) result = "`" + result + "`"
+    return result
   }
 
   function addName(text: string) {
@@ -292,10 +294,11 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   function addImportjsPragma(pattern: string): number {
     if (!ast.data.expressions) ast.data.expressions = []
     if (!ast.data.pragmas) ast.data.pragmas = []
+    const escaped = pattern.replace(/\$/g, "$$$$")
     const keyExpr = ast.data.expressions.length
     ast.data.expressions.push({ identifier: { name: addName("importjs") } })
     const valExpr = ast.data.expressions.length
-    ast.data.expressions.push({ literal: { kind: 2, value: addSrc(pattern) } })
+    ast.data.expressions.push({ literal: { kind: 2, value: addSrc(escaped) } })
     const pragmaId = ast.data.pragmas.length
     ast.data.pragmas.push({ key: keyExpr, value: valExpr })
     return pragmaId

@@ -118,6 +118,7 @@ const jsFeatures = [
   (check, "callbacks_in_fields"),
   (check, "generic_interfaces"),
   (check, "forward_references"),
+  (check, "identifiers_special"),
 ]
 
 suite "Henka JS should support":
