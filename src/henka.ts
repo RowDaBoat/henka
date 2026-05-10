@@ -653,7 +653,8 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         }
         let typeId: number
         const hasMethods = node.members.some(m => ts.isMethodSignature(m))
-        if (firstField === undefined && linkRange === undefined && !hasMethods) {
+        const isMultiInherit = linkRange !== undefined && linkRange.end > linkRange.start
+        if (isMultiInherit || (firstField === undefined && linkRange === undefined && !hasMethods)) {
           needsJsffi = true
           ast.data.types.push({ primitive: { name: addName("JsObject"), keyword: addName("distinct") } })
           const distinctTargetId = ast.data.types.length - 1
@@ -667,6 +668,36 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         const stmtId = ast.data.statements.length
         ast.data.statements.push({ type: { id: typeId } })
         linkStmt(stmtId)
+
+        // Emit field getter procs for multi-inherit (distinct JsObject has no fields)
+        if (isMultiInherit) {
+          const selfTypeId = ast.data.types.length
+          ast.data.types.push({ primitive: { name: addName(ifaceName) } })
+          for (const member of node.members) {
+            if (!ts.isPropertySignature(member) || !member.name) continue
+            const fieldName = sanitize(unquote(member.name.getText()))
+            const fieldTypeId = mapType(member.type, checker)
+            const funcName = addName(prefixed(fieldName))
+            const selfTypeExpr = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: selfTypeId } })
+            const selfBinding = ast.data.bindings.length
+            ast.data.bindings.push({ name: addName("self"), dataType: selfTypeExpr, private: true })
+            const fieldRetExpr = ast.data.expressions.length
+            ast.data.expressions.push({ type: { id: fieldTypeId } })
+            const pragmaId = addImportjsPragma("#." + unquote(member.name.getText()))
+            const procId = ast.data.procedures.length
+            ast.data.procedures.push({
+              name: funcName,
+              arguments: selfBinding,
+              returnType: fieldRetExpr,
+              pragmas: pragmaId,
+              impure: true,
+            })
+            const procStmtId = ast.data.statements.length
+            ast.data.statements.push({ procedure: { id: procId } })
+            linkStmt(procStmtId)
+          }
+        }
 
         // Self type for method signatures
         const selfTypeId = ast.data.types.length
