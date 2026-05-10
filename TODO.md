@@ -255,7 +255,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Non-string union type aliases — `type X = A | B` now emits `type X* = JsObject` alias
 - [x] Special chars in const names from literals — full const name (prefix + literal) goes through `sanitize` which backtick-quotes when non-identifier chars present
 - [x] Tuple types — TS `[A, B]` → unnamed `(A, B)`, named `[a: A, b: B]` → `tuple[a: A, b: B]`. Works in return types, type aliases, and interface methods.
-- [ ] UIEventInit inheritance cascade — `Cannot inherit from: 'UIEventInit'` error in lib.dom.d.ts, cause unclear (possibly cascade from syntax errors above it)
+- [x] UIEventInit inheritance cascade — fixed by topological sort of child type chain (DFS post-order). Root types (no parent) emit first, then child types in dependency order.
 - [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
 - [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
 - [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.

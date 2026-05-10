@@ -72,8 +72,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     return pragmaId
   }
 
-  let firstTypeStmt: number | undefined
-  let lastTypeStmt: number | undefined
+  let firstRootTypeStmt: number | undefined
+  let lastRootTypeStmt: number | undefined
+  let firstChildTypeStmt: number | undefined
+  let lastChildTypeStmt: number | undefined
   let firstOtherStmt: number | undefined
   let lastOtherStmt: number | undefined
 
@@ -85,10 +87,16 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     else if (prev.import)    prev.import.next     = nextId
   }
 
-  function linkTypeStmt(stmtId: number) {
-    if (lastTypeStmt !== undefined) linkAfter(lastTypeStmt, stmtId)
-    if (firstTypeStmt === undefined) firstTypeStmt = stmtId
-    lastTypeStmt = stmtId
+  function linkRootTypeStmt(stmtId: number) {
+    if (lastRootTypeStmt !== undefined) linkAfter(lastRootTypeStmt, stmtId)
+    if (firstRootTypeStmt === undefined) firstRootTypeStmt = stmtId
+    lastRootTypeStmt = stmtId
+  }
+
+  function linkChildTypeStmt(stmtId: number) {
+    if (lastChildTypeStmt !== undefined) linkAfter(lastChildTypeStmt, stmtId)
+    if (firstChildTypeStmt === undefined) firstChildTypeStmt = stmtId
+    lastChildTypeStmt = stmtId
   }
 
   function linkOtherStmt(stmtId: number) {
@@ -99,8 +107,13 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
 
   function linkStmt(stmtId: number) {
     const stmt = ast.data.statements[stmtId]
-    if (stmt.type) linkTypeStmt(stmtId)
-    else linkOtherStmt(stmtId)
+    if (stmt.type) {
+      const typeData = ast.data.types[stmt.type.id]
+      if (typeData.object?.link) linkChildTypeStmt(stmtId)
+      else linkRootTypeStmt(stmtId)
+    } else {
+      linkOtherStmt(stmtId)
+    }
   }
 
   function mapType(node: ts.TypeNode | undefined, checker: ts.TypeChecker): number {
@@ -171,7 +184,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
               ast.data.types.push({ alias: { name: addName(sanitize(typeText)), target: addTypeExpr(jsObjectId) } })
               const stmtId = ast.data.statements.length
               ast.data.statements.push({ type: { id: aliasId } })
-              linkTypeStmt(stmtId)
+              linkRootTypeStmt(stmtId)
               externalTypes.set(typeText, aliasId)
               ast.data.types.push({ primitive: { name: addName(sanitize(typeText)) } })
             }
@@ -1015,7 +1028,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     ast.data.types.push({ alias: { name: addName(syntheticName), target: addTypeExpr(baseTypeId) } })
     const typeStmtId = ast.data.statements.length
     ast.data.statements.push({ type: { id: aliasTypeId } })
-    linkTypeStmt(typeStmtId)
+    linkRootTypeStmt(typeStmtId)
 
     // Modify the proc's param binding to use the synthetic type
     const syntheticRefTypeId = ast.data.types.length
@@ -1056,10 +1069,57 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     }
   }
 
-  // Stitch chains: types first, then others
+  // Topological sort of child type chain so parents come before children
+  if (firstChildTypeStmt !== undefined) {
+    const children: number[] = []
+    let walk: number | undefined = firstChildTypeStmt
+    while (walk !== undefined) {
+      children.push(walk)
+      walk = ast.data.statements[walk].type?.next
+    }
+
+    const nameToIdx = new Map<string, number>()
+    for (let idx = 0; idx < children.length; idx++) {
+      const typeData = ast.data.types[ast.data.statements[children[idx]].type!.id]
+      const loc = typeData.object?.name?.location ?? typeData.alias?.name?.location
+      if (loc) nameToIdx.set(source.slice(loc.start, loc.end), idx)
+    }
+
+    const sorted: number[] = []
+    const visited = new Set<number>()
+    function visit(idx: number) {
+      if (visited.has(idx)) return
+      visited.add(idx)
+      const typeData = ast.data.types[ast.data.statements[children[idx]].type!.id]
+      if (typeData.object?.link && ast.data.links) {
+        for (let linkIdx = typeData.object.link.start; linkIdx <= typeData.object.link.end; linkIdx++) {
+          const parentType = ast.data.types[ast.data.links[linkIdx].type]
+          const parentLoc = parentType.object?.name?.location ?? parentType.primitive?.name?.location
+          if (parentLoc) {
+            const parentIdx = nameToIdx.get(source.slice(parentLoc.start, parentLoc.end))
+            if (parentIdx !== undefined) visit(parentIdx)
+          }
+        }
+      }
+      sorted.push(children[idx])
+    }
+    for (let idx = 0; idx < children.length; idx++) visit(idx)
+
+    for (let idx = 0; idx < sorted.length - 1; idx++) ast.data.statements[sorted[idx]].type!.next = sorted[idx + 1]
+    delete ast.data.statements[sorted[sorted.length - 1]].type!.next
+    firstChildTypeStmt = sorted[0]
+    lastChildTypeStmt = sorted[sorted.length - 1]
+  }
+
+  // Stitch chains: root types → child types → others
+  if (lastRootTypeStmt !== undefined && firstChildTypeStmt !== undefined) {
+    linkAfter(lastRootTypeStmt, firstChildTypeStmt)
+  }
+  const lastTypeStmt = lastChildTypeStmt ?? lastRootTypeStmt
   if (lastTypeStmt !== undefined && firstOtherStmt !== undefined) {
     linkAfter(lastTypeStmt, firstOtherStmt)
   }
+  const firstTypeStmt = firstRootTypeStmt ?? firstChildTypeStmt
   ast.data.modules[moduleId].body = firstTypeStmt ?? firstOtherStmt
 
   if (needsUndefined) {
