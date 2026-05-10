@@ -1,5 +1,5 @@
 import ts from "typescript"
-import type { astTF } from "@heysokam/astTF"
+import type { astTF, Binding } from "@heysokam/astTF"
 
 export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile, program: ts.Program) {
 
@@ -304,6 +304,27 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         ast.data.types.push({ primitive: { name: addName("JsObject") } })
         needsJsffi = true
         break
+      case ts.SyntaxKind.TupleType: {
+        const tupleNode = node as ts.TupleTypeNode
+        let firstField: number | undefined
+        let prevField: number | undefined
+        for (const elem of tupleNode.elements) {
+          const isNamed = ts.isNamedTupleMember(elem)
+          const typeNode = isNamed ? (elem as ts.NamedTupleMember).type : elem
+          const elemTypeId = mapType(typeNode, checker)
+          const elemTypeExpr = ast.data.expressions.length
+          ast.data.expressions.push({ type: { id: elemTypeId } })
+          const binding: Binding = { dataType: elemTypeExpr }
+          if (isNamed) binding.name = addName((elem as ts.NamedTupleMember).name.getText())
+          const bindingId = ast.data.bindings.length
+          ast.data.bindings.push(binding)
+          if (prevField !== undefined) ast.data.bindings[prevField].next = bindingId
+          if (firstField === undefined) firstField = bindingId
+          prevField = bindingId
+        }
+        ast.data.types.push({ object: { keyword: addName("tuple"), fields: firstField } })
+        break
+      }
       case ts.SyntaxKind.ExpressionWithTypeArguments: {
         const exprNode = node as ts.ExpressionWithTypeArguments
         const baseName = exprNode.expression.getText(node.getSourceFile())
@@ -910,7 +931,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           const targetId = mapType(node.type, checker)
           const targetType = ast.data.types[targetId]
 
-          if (targetType.object) {
+          if (targetType.object && !targetType.object.keyword) {
             targetType.object.name = typeName
             const stmtId = ast.data.statements.length
             ast.data.statements.push({ type: { id: targetId } })

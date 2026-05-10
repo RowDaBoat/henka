@@ -11,8 +11,8 @@
     "henka-js": "./src/henka.ts"
   },
   "scripts": {
-    "compile": "bun compile:ts && bun compile:nim",
+    "compile": "bun compile:js && bun compile:nim",
     "compile:nim": "nimble build",
-    "compile:ts": "bun --bun build --compile --minify --bytecode --sourcemap ./src/henka.ts --outfile ./bin/henka-js"
+    "compile:js": "bun --bun build --compile --minify --bytecode --sourcemap ./src/henka.ts --outfile ./bin/henka-js"
   }
 }

@@ -120,6 +120,7 @@ const jsFeatures = [
   (check, "forward_references"),
   (check, "identifiers_special"),
   (check, "external_types"),
+  (check, "tuples"),
 ]
 
 suite "Henka JS should support":
