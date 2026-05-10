@@ -119,6 +119,7 @@ const jsFeatures = [
   (check, "generic_interfaces"),
   (check, "forward_references"),
   (check, "identifiers_special"),
+  (check, "external_types"),
 ]
 
 suite "Henka JS should support":

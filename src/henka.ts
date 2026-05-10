@@ -12,6 +12,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   const objectTypeIds = new Map<string, number>()
   const emittedProcs = new Map<string, { procId: number, literalsId: number | null, literalParamIdx: number, hasSelf: boolean, paramCount: number }>()
   const procLiterals: number[][] = []
+  const externalTypes = new Map<string, number>()
   const namespaceStack: string[] = []
 
   function unquote(name: string): string {
@@ -141,19 +142,41 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           needsJsffi = true
         } else {
           const symbol = checker.getSymbolAtLocation(refNode.typeName)
+          const hasDeclarations = symbol?.declarations && symbol.declarations.length > 0
+          const declFile = hasDeclarations ? symbol.declarations[0].getSourceFile().fileName : undefined
+          const inputFiles = ast.data.modules.map(m => m.path)
+          const isExternal = !symbol || !hasDeclarations || (declFile !== undefined && !inputFiles.includes(declFile))
+
+          if (isExternal) {
+            const existing = externalTypes.get(typeText)
+            if (existing !== undefined) {
+              ast.data.types.push({ primitive: { name: addName(sanitize(typeText)) } })
+            } else {
+              needsJsffi = true
+              const jsObjectId = ast.data.types.length
+              ast.data.types.push({ primitive: { name: addName("JsObject") } })
+              const aliasId = ast.data.types.length
+              ast.data.types.push({ alias: { name: addName(sanitize(typeText)), target: jsObjectId } })
+              const stmtId = ast.data.statements.length
+              ast.data.statements.push({ type: { id: aliasId } })
+              linkTypeStmt(stmtId)
+              externalTypes.set(typeText, aliasId)
+              ast.data.types.push({ primitive: { name: addName(sanitize(typeText)) } })
+            }
+            break
+          }
+
           let resolvedName = typeText
-          if (symbol) {
-            const isTypeParam = symbol.declarations?.some(d => ts.isTypeParameterDeclaration(d)) ?? false
-            if (isTypeParam) {
-              ast.data.types.push({ primitive: { name: addName(resolvedName) } })
-              break
-            }
-            let fullName = checker.getFullyQualifiedName(symbol)
-            const quoteEnd = fullName.lastIndexOf('"')
-            if (quoteEnd >= 0) fullName = fullName.substring(quoteEnd + 2)
-            if (fullName.includes(".")) {
-              resolvedName = fullName.replace(/\./g, "_")
-            }
+          const isTypeParam = symbol.declarations?.some(d => ts.isTypeParameterDeclaration(d)) ?? false
+          if (isTypeParam) {
+            ast.data.types.push({ primitive: { name: addName(resolvedName) } })
+            break
+          }
+          let fullName = checker.getFullyQualifiedName(symbol)
+          const quoteEnd = fullName.lastIndexOf('"')
+          if (quoteEnd >= 0) fullName = fullName.substring(quoteEnd + 2)
+          if (fullName.includes(".")) {
+            resolvedName = fullName.replace(/\./g, "_")
           }
           ast.data.types.push({ primitive: { name: addName(sanitize(resolvedName)) } })
         }

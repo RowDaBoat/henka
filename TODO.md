@@ -253,7 +253,7 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [x] Special characters in identifiers — hyphens and `$` get backtick-quoted via `sanitize`, `$` in importjs patterns escaped with `$$`
 - [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
 - [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
-- [ ] External type references — types from other lib files (like `ArrayBuffer`, `DOMHighResTimeStamp`) produce undeclared identifier errors. Could emit stub `type X* = JsObject` for unresolved references.
+- [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.
 - [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
 - [ ] (maybe?) Automatic ES module generation
 - [ ] TS utility types: proper mappings (investigate each)
