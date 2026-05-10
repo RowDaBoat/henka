@@ -81,7 +81,8 @@ proc toNimEnum*(conv: var Converter, cursor: CXCursor, name: string, config: Enu
   if cleanAlias notin conv.seenTypedefs and cleanAlias != sanitizedEnumName:
     let cleanName    = conv.addRenamed(Typedef, name)
     let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
-    let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
+    let refExpr      = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: refTypeId)))
+    let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refExpr)))
     conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: cleanAliasId)))
 
   return CXChildVisit_Continue.cint
@@ -94,7 +95,8 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
     of on:  some(conv.addName("distinct"))
     of off: none(astTF.Identifier)
   let cintTypeId      = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("cint"), keyword: distinctKeyword)))
-  let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(enumIdent), target: cintTypeId)))
+  let cintExpr        = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: cintTypeId)))
+  let enumAliasId     = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(enumIdent), target: cintExpr)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: enumAliasId, comment: commentOpt)))
 
   let sanitizedEnumName = conv.sanitizer(conv.renamer(EnumType, name))
@@ -130,7 +132,8 @@ proc toCintEnum*(conv: var Converter, cursor: CXCursor, name: string, config: En
   if cleanAlias notin conv.seenTypedefs and cleanAlias != sanitizedEnumName:
     let cleanName    = conv.addRenamed(Typedef, name)
     let refTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(sanitizedEnumName))))
-    let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
+    let refExpr      = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: refTypeId)))
+    let cleanAliasId = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refExpr)))
     conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: cleanAliasId)))
 
   return CXChildVisit_Continue.cint

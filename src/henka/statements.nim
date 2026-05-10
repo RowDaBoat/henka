@@ -52,7 +52,8 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let commentOpt = conv.add_comment(cursor)
   let targetId  = conv.convertType(underlying)
   let aliasName = conv.addRenamed(Typedef, name)
-  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetId)))
+  let targetExpr = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: targetId)))
+  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
   conv.seenTypedefs.incl renamedAlias
 
@@ -223,7 +224,8 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
       let cleanName        = conv.addRenamed(Typedef, name)
       let renamedStructRef = conv.addRenamed(labelKind, name)
       let refTypeId        = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: renamedStructRef)))
-      let aliasTypeId      = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refTypeId)))
+      let refExpr          = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: refTypeId)))
+      let aliasTypeId      = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(cleanName), target: refExpr)))
       conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasTypeId)))
 
   return CXChildVisit_Continue.cint
