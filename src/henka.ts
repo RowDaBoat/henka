@@ -48,7 +48,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     let result = name
     if (result.startsWith("__")) result = "internal" + result.slice(1)
     else if (result.startsWith("_")) result = "priv" + result
-    if (result.includes("-") || result.includes("$")) result = "`" + result + "`"
+    if (/[^a-zA-Z0-9_]/.test(result)) result = "`" + result + "`"
     result = result.replace(/_{2,}/g, "_")
     if (result.endsWith("_")) {
       const count = uniqueNames.get(result) ?? 0
@@ -168,7 +168,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
               const jsObjectId = ast.data.types.length
               ast.data.types.push({ primitive: { name: addName("JsObject") } })
               const aliasId = ast.data.types.length
-              ast.data.types.push({ alias: { name: addName(sanitize(typeText)), target: jsObjectId } })
+              ast.data.types.push({ alias: { name: addName(sanitize(typeText)), target: addTypeExpr(jsObjectId) } })
               const stmtId = ast.data.statements.length
               ast.data.statements.push({ type: { id: aliasId } })
               linkTypeStmt(stmtId)
@@ -328,6 +328,13 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
         ast.data.types.push({ primitive: { name: addName(typeText) } })
     }
     return ast.data.types.length - 1
+  }
+
+  function addTypeExpr(typeId: number): number {
+    if (!ast.data.expressions) ast.data.expressions = []
+    const exprId = ast.data.expressions.length
+    ast.data.expressions.push({ type: { id: typeId } })
+    return exprId
   }
 
   function addImportjsPragma(pattern: string): number {
@@ -526,7 +533,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       ast.data.types.push({ primitive: { name: addName("JsObject"), keyword: addName("distinct") } })
       const distinctTargetId = ast.data.types.length - 1
       const aliasId = ast.data.types.length
-      ast.data.types.push({ alias: { name: addName(prefixedClassName), target: distinctTargetId } })
+      ast.data.types.push({ alias: { name: addName(prefixedClassName), target: addTypeExpr(distinctTargetId) } })
       const typeStmtId = ast.data.statements.length
       ast.data.statements.push({ type: { id: aliasId } })
       linkStmt(typeStmtId)
@@ -604,7 +611,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       const baseTypeId = ast.data.types.length
       ast.data.types.push({ primitive: { name: addName(isStringEnum ? "cstring" : "cint") } })
       const aliasTypeId = ast.data.types.length
-      ast.data.types.push({ alias: { name: addName(enumName), target: baseTypeId } })
+      ast.data.types.push({ alias: { name: addName(enumName), target: addTypeExpr(baseTypeId) } })
       const typeStmtId = ast.data.statements.length
       ast.data.statements.push({ type: { id: aliasTypeId } })
       linkStmt(typeStmtId)
@@ -771,7 +778,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
           ast.data.types.push({ primitive: { name: addName("JsObject"), keyword: addName("distinct") } })
           const distinctTargetId = ast.data.types.length - 1
           typeId = ast.data.types.length
-          ast.data.types.push({ alias: { name: typeName, target: distinctTargetId } })
+          ast.data.types.push({ alias: { name: typeName, target: addTypeExpr(distinctTargetId) } })
         } else {
           let firstGeneric: number | undefined
           if (node.typeParameters && node.typeParameters.length > 0) {
@@ -862,14 +869,15 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
             const cstringTypeId = ast.data.types.length
             ast.data.types.push({ primitive: { name: addName("cstring"), keyword: addName("distinct") } })
             const aliasId = ast.data.types.length
-            ast.data.types.push({ alias: { name: typeName, target: cstringTypeId } })
+            ast.data.types.push({ alias: { name: typeName, target: addTypeExpr(cstringTypeId) } })
             const typeStmtId = ast.data.statements.length
             ast.data.statements.push({ type: { id: aliasId } })
             linkStmt(typeStmtId)
 
             for (const member of members) {
               const literal = (member as ts.LiteralTypeNode).literal as ts.StringLiteral
-              const constName = addName(aliasName + "_" + sanitize(literal.text.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())))
+              const literalIdent = literal.text.length === 0 ? "empty" : literal.text
+              const constName = addName(sanitize(aliasName + "_" + literalIdent))
               const strLiteralId = ast.data.expressions.length
               ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literal.text) } })
               const argBindingId = ast.data.bindings.length
@@ -893,7 +901,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
             const jsObjectId = ast.data.types.length
             ast.data.types.push({ primitive: { name: addName("JsObject") } })
             const aliasId = ast.data.types.length
-            ast.data.types.push({ alias: { name: typeName, target: jsObjectId } })
+            ast.data.types.push({ alias: { name: typeName, target: addTypeExpr(jsObjectId) } })
             const typeStmtId = ast.data.statements.length
             ast.data.statements.push({ type: { id: aliasId } })
             linkStmt(typeStmtId)
@@ -909,7 +917,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
             linkStmt(stmtId)
           } else {
             const aliasId = ast.data.types.length
-            ast.data.types.push({ alias: { name: typeName, target: targetId } })
+            ast.data.types.push({ alias: { name: typeName, target: addTypeExpr(targetId) } })
             const stmtId = ast.data.statements.length
             ast.data.statements.push({ type: { id: aliasId } })
             linkStmt(stmtId)
@@ -983,7 +991,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     const baseTypeId = ast.data.types.length
     ast.data.types.push({ primitive: { name: addName(baseTypeName), keyword: addName("distinct") } })
     const aliasTypeId = ast.data.types.length
-    ast.data.types.push({ alias: { name: addName(syntheticName), target: baseTypeId } })
+    ast.data.types.push({ alias: { name: addName(syntheticName), target: addTypeExpr(baseTypeId) } })
     const typeStmtId = ast.data.statements.length
     ast.data.statements.push({ type: { id: aliasTypeId } })
     linkTypeStmt(typeStmtId)
@@ -1008,8 +1016,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       const litExpr = ast.data.expressions[literalExprId]
       const litLoc = litExpr.literal.value
       const litText = source.substring(litLoc.start, litLoc.end)
-      const constIdent = sanitize(litText.replace(/-([a-z])/g, (_: string, c: string) => c.toUpperCase()))
-      const constName = addName(syntheticName + "_" + constIdent)
+      const constName = addName(sanitize(syntheticName + "_" + litText))
       const argBindingId = ast.data.bindings.length
       ast.data.bindings.push({ value: literalExprId, private: true })
       const castNameExpr = ast.data.expressions.length

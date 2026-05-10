@@ -15,10 +15,15 @@ discard jq.`get$value`()
 `$init`()
 `$$reset`()
 
-# Empty string literal in union — gets unnamed0 const name
-setAutoFill(AutoFillBase_unnamed0)
+# Empty string literal in union — empty string becomes "empty"
+setAutoFill(AutoFillBase_empty)
 setAutoFill(AutoFillBase_off)
 setAutoFill(AutoFillBase_on)
+
+# MIME types / special chars in string union consts — backtick quoted
+setMime(`MimeType_application/json`)
+setMime(`MimeType_application/xhtml+xml`)
+setMime(`MimeType_text/plain`)
 
 # Trailing underscores — get numeric suffix
 var tu: TrailingUnderscore

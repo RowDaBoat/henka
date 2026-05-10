@@ -22,6 +22,9 @@ export interface TrailingUnderscore {
   data__: string
 }
 
+export type MimeType = "application/json" | "application/xhtml+xml" | "text/plain"
+export function setMime(value: MimeType): void {}
+
 export interface Keywords {
   type: string
   object: string
