@@ -180,6 +180,74 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
+## JavaScript / TypeScript
+
+### Pipeline
+- [x] TypeScript compiler API parses .ts and .js files
+- [x] Produces astTF JSON matching the Zig spec format
+- [x] Zig/slate codegen reads JSON and renders Nim output
+- [x] Generated Nim compiles with `-b:js`
+- [x] `henka` CLI detects .ts/.js extensions and dispatches to `henka-js`
+- [x] `henka-js` outputs astTF JSON to stdout, `henka` reads and processes it
+
+### Supported declarations
+- [x] Function declarations → `proc` with `{.importjs.}`
+- [x] Variable/const declarations → `const` with literal values
+- [x] Interface declarations → `type = object` with fields
+- [x] Type alias declarations → `type = alias` or inline object
+- [x] Class declarations → `type = distinct JsObject` with getter procs + constructor + instance/static methods
+- [x] Enum declarations → `type = cint`/`cstring` + const values (numeric and string enums)
+- [x] Array types (`T[]`) → `seq[T]`
+- [x] Callback/function types → procedure types with correct `proc(...)` rendering
+
+### Type mappings
+- [x] `number` → `cdouble`
+- [x] `string` → `cstring`
+- [x] `boolean` → `bool`
+- [x] `void` → `void`
+- [x] Type references (named types)
+- [x] Object literal types
+- [x] `any` → `JsObject` (auto-imports `std/jsffi`)
+- [x] `number[]` / `Array<T>` → `seq[T]`
+- [x] `string | number` (union types) → `JsObject`
+- [x] `Promise<T>` → `Future[T]` (auto-imports `std/asyncjs`)
+- [x] Optional types (`x?: T`, `T | undefined`) → `Option[T]` (auto-imports `std/options`)
+- [x] Generic types (`Map<K,V>`, `Set<T>`, `Record<K,V>`) → `JsObject` fallback
+
+### Class support
+- [x] Classes emit as `distinct JsObject` — opaque handles, no nimCopy corruption
+- [x] Fields → getter procs with `{.importjs:"#.fieldName".}`
+- [x] Constructor → `proc newClassName(...): ClassName {.importjs: "new ClassName(@)".}`
+- [x] Instance methods → `proc methodName(self: ClassName, ...) {.importjs: "#.methodName(@)".}`
+- [x] Static methods → `proc methodName(...) {.importjs: "ClassName.methodName(@)".}`
+- [x] Interface inheritance → `object of Parent`, `{.inheritable.}` only on types in inheritance chains
+
+### Other features
+- [x] Method signatures in interfaces
+- [x] Default parameter values
+- [x] Rest parameters (`...args`) → `varargs`
+- [x] Namespace declarations → `_` separated prefixes, `.` in importjs patterns
+- [x] Nested/anonymous object types → `AnonymousN` synthetic types
+- [x] Overloaded functions → native Nim overloads
+
+### Known issues (real-world testing: WebGPU, WebGL, lib.dom.d.ts)
+- [ ] `__` prefix identifiers — Nim rejects leading underscore
+- [ ] `__` prefix fields — TS-internal branding fields should be skipped
+- [ ] Quoted/string-literal field names — `"abort": Event` produces invalid Nim
+- [ ] `undefined` as field/return type — should map to void or skip
+- [ ] Unresolved TS utility types — `Required<T>`, `Omit<T,K>`, `Iterable<T>` fall through as raw text
+- [ ] Generic type parameters in methods — `K extends keyof T` produces literal `K`
+- [ ] String union types — `"default" | "high-performance"` should map to `cstring`
+- [ ] `null` in union types — `T | null` should be `Option[T]`
+- [ ] Overload deduplication — identical signatures after literal type collapse
+- [ ] Multi-extends interfaces — only first base inherited, rest ignored
+- [ ] Empty interfaces as opaque handles — should be `distinct JsObject` not `object`
+- [ ] Namespace `const` with no initializer — produces invalid Nim
+- [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
+- [ ] No automatic ES module generation
+- [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier
+
+
 ## Documentation
 - [ ] Write user-facing docs for callback APIs (renamer, symbolFilter, symbolOverride, typeMapper, pragmaOverride, etc.)
 - [ ] Document the C vs C++ detection and `--cpp` flag behavior
