@@ -48,3 +48,10 @@ export function getChannel(id: number): any { return {} }
 export function toggle(state: true): ExtA
 export function toggle(state: false): ExtB
 export function toggle(state: boolean): any { return {} }
+
+// Case 7: Method overloads on an interface (the WebGL getExtension pattern)
+export interface Renderer {
+  getFeature(name: "EXT_A"): ExtA
+  getFeature(name: "EXT_B"): ExtB
+  getFeature(name: "EXT_C"): ExtC
+}

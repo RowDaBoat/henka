@@ -10,7 +10,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   let needsUndefined = false
   let syntheticCount = 0
   const objectTypeIds = new Map<string, number>()
-  const emittedProcs = new Map<string, { procId: number, literalsId: number | null, literalParamIdx: number }>()
+  const emittedProcs = new Map<string, { procId: number, literalsId: number | null, literalParamIdx: number, hasSelf: boolean, paramCount: number }>()
   const procLiterals: number[][] = []
   const namespaceStack: string[] = []
 
@@ -278,6 +278,51 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     return pragmaId
   }
 
+  function pushLiteralExpr(literalNode: ts.Node): number {
+    const exprId = ast.data.expressions.length
+    if (ts.isStringLiteral(literalNode))
+      ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.text) } })
+    else if (ts.isNumericLiteral(literalNode))
+      ast.data.expressions.push({ literal: { kind: 1, value: addSrc(literalNode.text) } })
+    else if (literalNode.kind === ts.SyntaxKind.TrueKeyword)
+      ast.data.expressions.push({ literal: { kind: 4, value: addSrc("true") } })
+    else if (literalNode.kind === ts.SyntaxKind.FalseKeyword)
+      ast.data.expressions.push({ literal: { kind: 4, value: addSrc("false") } })
+    else
+      ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.getText()) } })
+    return exprId
+  }
+
+  function emitOrDedup(
+    procName     : string,
+    params       : ts.NodeArray<ts.ParameterDeclaration>,
+    retTypeNode  : ts.TypeNode | undefined,
+    pattern      : string,
+    selfType?    : number,
+    typeParams?  : ts.NodeArray<ts.TypeParameterDeclaration>,
+    dedupKey?    : string,
+  ): void {
+    const mapKey = dedupKey ?? procName
+    const existing = emittedProcs.get(mapKey)
+    const literalParamIdx = params.findIndex(p => p.type && ts.isLiteralTypeNode(p.type))
+    const literalParam = literalParamIdx >= 0 ? params[literalParamIdx] : undefined
+
+    if (existing && literalParam && existing.literalsId !== null && existing.paramCount === params.length) {
+      const literalNode = (literalParam.type as ts.LiteralTypeNode).literal
+      procLiterals[existing.literalsId].push(pushLiteralExpr(literalNode))
+    } else {
+      addProc(procName, params, retTypeNode, pattern, selfType, typeParams)
+      const procId = ast.data.procedures.length - 1
+      let literalsId: number | null = null
+      if (literalParam) {
+        const literalNode = (literalParam.type as ts.LiteralTypeNode).literal
+        literalsId = procLiterals.length
+        procLiterals.push([pushLiteralExpr(literalNode)])
+      }
+      emittedProcs.set(mapKey, { procId, literalsId, literalParamIdx, hasSelf: selfType !== undefined, paramCount: params.length })
+    }
+  }
+
   function addProc(
     name        : string,
     params      : ts.NodeArray<ts.ParameterDeclaration>,
@@ -402,52 +447,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
       const symbol = checker.getSymbolAtLocation(node.name)
       const isOverloadImpl = node.body && symbol && (symbol.declarations?.length ?? 0) > 1
       if (!isOverloadImpl) {
-        const procName = prefixed(node.name.text)
-        const existing = emittedProcs.get(procName)
-
-        // Find the literal type param (string, number, or boolean)
-        const literalParamIdx = node.parameters.findIndex(p =>
-          p.type && ts.isLiteralTypeNode(p.type)
-        )
-        const literalParam = literalParamIdx >= 0 ? node.parameters[literalParamIdx] : undefined
-
-        if (existing && literalParam && existing.literalsId !== null) {
-          // Collision with literal param — add to existing group, skip emit
-          const literalExprId = ast.data.expressions.length
-          const literalNode = (literalParam.type as ts.LiteralTypeNode).literal
-          if (ts.isStringLiteral(literalNode))
-            ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.text) } })
-          else if (ts.isNumericLiteral(literalNode))
-            ast.data.expressions.push({ literal: { kind: 1, value: addSrc(literalNode.text) } })
-          else if (literalNode.kind === ts.SyntaxKind.TrueKeyword)
-            ast.data.expressions.push({ literal: { kind: 4, value: addSrc("true") } })
-          else if (literalNode.kind === ts.SyntaxKind.FalseKeyword)
-            ast.data.expressions.push({ literal: { kind: 4, value: addSrc("false") } })
-          else
-            ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.getText()) } })
-          procLiterals[existing.literalsId].push(literalExprId)
-        } else {
-          addProc(procName, node.parameters, node.type, jsPattern(node.name.text) + "(@)", undefined, node.typeParameters)
-          const procId = ast.data.procedures.length - 1
-          let literalsId: number | null = null
-          if (literalParam) {
-            const literalExprId = ast.data.expressions.length
-            const literalNode = (literalParam.type as ts.LiteralTypeNode).literal
-            if (ts.isStringLiteral(literalNode))
-              ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.text) } })
-            else if (ts.isNumericLiteral(literalNode))
-              ast.data.expressions.push({ literal: { kind: 1, value: addSrc(literalNode.text) } })
-            else if (literalNode.kind === ts.SyntaxKind.TrueKeyword)
-              ast.data.expressions.push({ literal: { kind: 4, value: addSrc("true") } })
-            else if (literalNode.kind === ts.SyntaxKind.FalseKeyword)
-              ast.data.expressions.push({ literal: { kind: 4, value: addSrc("false") } })
-            else
-              ast.data.expressions.push({ literal: { kind: 2, value: addSrc(literalNode.getText()) } })
-            literalsId = procLiterals.length
-            procLiterals.push([literalExprId])
-          }
-          emittedProcs.set(procName, { procId, literalsId, literalParamIdx })
-        }
+        emitOrDedup(prefixed(node.name.text), node.parameters, node.type, jsPattern(node.name.text) + "(@)", undefined, node.typeParameters)
       }
     }
 
@@ -752,10 +752,9 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
 
         // Emit method signatures as procs
         for (const member of node.members) {
-          if (ts.isMethodSignature(member) && member.name) {
-            const methodName = member.name.getText()
-            addProc(prefixed(methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId)
-          }
+          if (!ts.isMethodSignature(member) || !member.name) continue
+          const methodName = member.name.getText()
+          emitOrDedup(prefixed(methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, undefined, ifaceName + "." + methodName)
         }
       }
 
@@ -851,7 +850,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
   }
 
   // Resolve overload dedup: emit synthetic distinct types + consts for collapsed overloads
-  for (const [procName, { procId, literalsId, literalParamIdx }] of emittedProcs) {
+  for (const [procName, { procId, literalsId, literalParamIdx, hasSelf }] of emittedProcs) {
     if (literalsId === null) continue
     const literals = procLiterals[literalsId]
     if (literals.length <= 1) continue
@@ -859,9 +858,10 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     const proc = ast.data.procedures[procId]
     if (proc.arguments === undefined) continue
 
-    // Walk binding chain to the literal param position
+    // Walk binding chain to the literal param position (skip self if present)
     let paramBindingId: number = proc.arguments
-    for (let idx = 0; idx < literalParamIdx; idx++) {
+    const skipCount = literalParamIdx + (hasSelf ? 1 : 0)
+    for (let idx = 0; idx < skipCount; idx++) {
       const next = ast.data.bindings[paramBindingId].next
       if (next === undefined) break
       paramBindingId = next
@@ -875,8 +875,9 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     const literalKind = firstLiteral.literal.kind
     const baseTypeName = literalKind === 2 ? "cstring" : literalKind === 1 ? "cdouble" : "bool"
 
-    // Create synthetic type name: ProcName_paramName
-    const syntheticName = procName.charAt(0).toUpperCase() + procName.slice(1) + "_" + paramName
+    // Create synthetic type name: ProcName_paramName (use map key for uniqueness)
+    const baseName = procName.replace(".", "_")
+    const syntheticName = baseName.charAt(0).toUpperCase() + baseName.slice(1) + "_" + paramName
 
     // Emit: type SyntheticName* = distinct BaseType
     const baseTypeId = ast.data.types.length

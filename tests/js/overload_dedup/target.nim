@@ -41,6 +41,12 @@ let ch3: JsObject = getChannel(GetChannel_id_2)
 let t1: JsObject = toggle(Toggle_state_true)
 let t2: JsObject = toggle(Toggle_state_false)
 
+# Case 7: Method overloads on interface — same dedup as free functions
+var renderer: Renderer
+let m1: JsObject = renderer.getFeature(Renderer_getFeature_name_EXT_A)
+let m2: JsObject = renderer.getFeature(Renderer_getFeature_name_EXT_B)
+let m3: JsObject = renderer.getFeature(Renderer_getFeature_name_EXT_C)
+
 discard c1; discard c2; discard c3
 discard e1; discard e2; discard e3
 discard q1; discard q2
@@ -48,3 +54,4 @@ discard l1; discard l2
 discard s1
 discard ch1; discard ch2; discard ch3
 discard t1; discard t2
+discard m1; discard m2; discard m3
