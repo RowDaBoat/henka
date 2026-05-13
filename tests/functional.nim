@@ -75,6 +75,7 @@ const cppFeatures = [
   (check, "ordering_forward_templates"),
   (check, "template_generics"),
   (check, "references"),
+  (check, "extern_c"),
   (check, "enums_scoped"),
   (run,   "enums_unscoped"),
 ]
