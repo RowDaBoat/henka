@@ -126,6 +126,7 @@ const CXCursor_UnionDecl*             : cint = 3
 const CXCursor_ClassDecl*             : cint = 4
 const CXCursor_CXXMethod*             : cint = 21
 const CXCursor_Namespace*             : cint = 22
+const CXCursor_LinkageSpec*           : cint = 23
 const CXCursor_Constructor*           : cint = 24
 const CXCursor_Destructor*            : cint = 25
 const CXCursor_ConversionFunction*    : cint = 26

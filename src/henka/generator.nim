@@ -68,6 +68,17 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
   of CXCursor_FunctionTemplate : return conv[].toFunctionTemplate(cursor, name)
   of CXCursor_Namespace        : return CXChildVisit_Recurse.cint
   of CXCursor_TypeAliasDecl    : return conv[].toAlias(cursor, name)
+  of CXCursor_LinkageSpec      :
+    if not conv[].isCpp:
+      # HOW this happened, it should be error but
+      # henka can't do inplace error comments to generated code so
+      # well, there is another way to fall into this: CXTranslationUnit_SingleFileParse
+      return CXChildVisit_Recurse.cint
+
+    conv[].isCpp = false
+    discard clang_visitChildren(cursor, visitor, clientData)
+    conv[].isCpp = true
+    return CXChildVisit_Continue.cint
   else                         : return CXChildVisit_Continue.cint
 
 
