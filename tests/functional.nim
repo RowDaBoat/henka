@@ -55,6 +55,7 @@ const cFeatures = [
   feature(check, "functions"),
   feature(check, "passthrough_pragmas"),
   feature(check, "respect_ordering"),
+  feature(check, "single_file"),
   feature(check, "not_regress_on_bugs"),
 ]
 
