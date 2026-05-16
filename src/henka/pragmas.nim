@@ -6,6 +6,10 @@ import slate/ast as astTF
 # deps henka
 import ./[clang, common]
 
+const identifierPragmaKeys = ["dynlib"]
+# HACK: Determines quoting by key name. Breaks when pragma values are arbitrary expressions.
+const quotedPragmaKeys = ["header", "importc", "importcpp", "dynlib"]
+
 
 proc qualifiedName*(cursor: CXCursor): system.string =
   var parts: seq[system.string] = @[]
@@ -42,10 +46,15 @@ proc addPragma*(conv: var Converter; name: string; value: string = ""; quoted: b
   var pragmaValue: Option[astTF.Id] = none(astTF.Id)
 
   if value.len > 0:
-    let valLoc = conv.addSrc(value)
-    let kind = if quoted: LiteralKind.string else: LiteralKind.generic
-    let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: kind, value: valLoc)))
-    pragmaValue = some(valExpr)
+    if name in identifierPragmaKeys:
+      let valName = conv.addName(value)
+      let valExpr = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: valName)))
+      pragmaValue = some(valExpr)
+    else:
+      let valLoc = conv.addSrc(value)
+      let kind = if quoted: LiteralKind.string else: LiteralKind.generic
+      let valExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: kind, value: valLoc)))
+      pragmaValue = some(valExpr)
 
   result = conv.ast.add_pragma(Pragma(key: keyExpr, value: pragmaValue))
 
@@ -62,9 +71,6 @@ proc linkPragma*(conv: Converter): (system.string, system.string)=
   of LinkMode.header: result = conv.headerPragma
   of LinkMode.dynlib: result = ("dynlib", conv.dynlibName)
 
-
-# HACK: Determines quoting by key name. Breaks when pragma values are arbitrary expressions.
-const quotedPragmaKeys = ["header", "importc", "importcpp", "dynlib"]
 
 proc chainPragmas*(conv: var Converter; pairs: seq[(system.string, system.string)]): astTF.Id =
   var current: Option[astTF.Id] = none(astTF.Id)

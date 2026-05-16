@@ -9,6 +9,9 @@ selfhost
 src/henka/generator
 tests/**/bindings.nim
 tests/functional
+tests/**/*.dlsl
+tests/**/*.dylib
+tests/**/*.so
 
 # JS/TS Package
 node_modules/

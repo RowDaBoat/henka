@@ -67,7 +67,10 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
   of CXCursor_ClassDecl        : return conv[].toClass(cursor, name)
   of CXCursor_ClassTemplate    : return conv[].toClassTemplate(cursor, name)
   of CXCursor_FunctionTemplate : return conv[].toFunctionTemplate(cursor, name)
-  of CXCursor_Namespace        : return CXChildVisit_Recurse.cint
+  of CXCursor_Namespace,
+     CXCursor_LinkageSpec      :
+    discard clang_visitChildren(cursor, visitor, clientData)
+    return CXChildVisit_Continue.cint
   of CXCursor_TypeAliasDecl    : return conv[].toAlias(cursor, name)
   else                         : return CXChildVisit_Continue.cint
 
@@ -195,7 +198,7 @@ proc generate*(
 
     if conv.linkMode == LinkMode.dynlib and moduleIdx == 0 and conv.dynlibName.len > 0:
       let nameIdent = conv.addName(conv.dynlibName)
-      let valueLoc  = conv.addSrc("\"" & conv.dynlibPath & "\"")
+      let valueLoc  = conv.addSrc(conv.dynlibPath)
       let valueExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.string, value: valueLoc)))
       let pragmaId  = conv.addPragma("strdefine")
       let bindingId = conv.ast.add_binding(Binding(name: some(nameIdent), value: some(valueExpr), pragmas: some(pragmaId)))
