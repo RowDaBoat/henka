@@ -2,8 +2,8 @@
 from std/options import Option, none, some, isSome, isNone, get
 from std/sets import HashSet, initHashSet, incl, contains
 from std/tables import Table, initTable, `[]=`, `[]`, hasKey, contains
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./clang
 

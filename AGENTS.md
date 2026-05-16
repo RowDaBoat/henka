@@ -16,13 +16,13 @@ Answers must be technical and honest.
 - target: nim
 - sources: C, C++, JS/TS
 - clang
-- heysokam's `astTF` and `slate`
+- heysokam's `astTF` and `nonim`
 
 
 ## Architecture
 - `henka` uses `libclang` to traverse C/C++ header files, building an intermediate representation in `astTF`.
 - On Javascript/Typescript, it uses the Typescript compiler's API instead to build the `astTF` intermediate representation.
-- Then the IR is translated into `nim` using `slate`.
+- Then the IR is trannonimd into `nim` using `nonim`.
 
 
 ## Code style

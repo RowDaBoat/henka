@@ -1,7 +1,7 @@
 # @deps std
 from std/strutils import join, startsWith, endsWith, replace, strip, split
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./[clang, common]
 

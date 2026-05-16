@@ -1,7 +1,7 @@
 # @deps std
 from std/strutils import startsWith, replace, contains, split, strip, find, rfind
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./[common, clang, pragmas]
 

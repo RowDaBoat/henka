@@ -9,7 +9,7 @@ installExt  = @["nim"]
 requires "nim >= 2.0.0"
 requires "https://github.com/RowDaBoat/cliquet#head"
 requires "https://codeberg.org/heysokam/astTF#head"
-requires "https://codeberg.org/heysokam/slate#head"
+requires "https://github.com/MechasNotBrains/nonim#head"
 
 # Binaries
 bin           = @["henka"]

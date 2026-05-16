@@ -1,8 +1,8 @@
 # @deps std
 from std/os import lastPathPart, relativePath
 from std/strutils import join
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # deps henka
 import ./[clang, common]
 

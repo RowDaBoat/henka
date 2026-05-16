@@ -1,8 +1,8 @@
 # Henka TODO
 
 ## v1 feature parity (Missing features from butcher)
-- [x] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations (fixed in slate codegen)
-- [x] Union pragma — `{.union.}` for C union types (slate codegen renders TypeObject.keyword as pragma, henka converter sets keyword + dispatches CXCursor_UnionDecl)
+- [x] Large uint64 literal suffix — values exceeding int32 range need `'u64` suffix in const declarations (fixed in nonim codegen)
+- [x] Union pragma — `{.union.}` for C union types (nonim codegen renders TypeObject.keyword as pragma, henka converter sets keyword + dispatches CXCursor_UnionDecl)
 - [x] Duplicate enum value handling — not needed: C enums are generated as `cint` alias + `const` values, which naturally allow duplicates
 - [x] `sanitizer` callback — separate `Sanitizer` callback runs after renamer in `addRenamed`. Default dedup-underscores and adds `priv` prefix for `_` names. User can override or compose.
 - [x] Relative header paths in pragmas — replaced `includeDir` with `rootDir` derived from first input file's parent. `headerPragma` computes `relativePath(headerFile, rootDir)`
@@ -41,7 +41,7 @@
 - [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
-- [x] Move multi-module rendering logic into slate — `slate.codegen.nim(ast)` renders all modules, returns Output
+- [x] Move multi-module rendering logic into nonim — `nonim.codegen.nim(ast)` renders all modules, returns Output
 - [ ] write DSL for AST
 - [x] Proper generic type references in AST
   - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
@@ -56,7 +56,7 @@
   - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
   - [x] `const T&` → `T` (flattened, const stripped)
   - [x] `const T&&` → `T` (flattened, const stripped)
-- [ ] Pragma values as proper expressions — unquoted pragma values (like `sizeof(cint)`) are currently stored as `LiteralKind.generic` literals. They should be proper expression trees (identifier, call, etc.) once slate codegen supports arbitrary expression generation.
+- [ ] Pragma values as proper expressions — unquoted pragma values (like `sizeof(cint)`) are currently stored as `LiteralKind.generic` literals. They should be proper expression trees (identifier, call, etc.) once nonim codegen supports arbitrary expression generation.
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 
 
