@@ -1,6 +1,8 @@
 # Vexel
 ## Project
-`henka` generates Nim FFI bindings from C/C++ headers using libclang's AST.
+`henka` generates Nim FFI bindings.
+- Bindings for C/C++ headers are generated using `libclang`'s AST.
+- Bindings for Javascript/Typescript code are generated using the typescript compiler's API.
 
 - Authors: RowDaBoat/heysokam
 - Issues are tracked as HIPs (Henka Issue Prompts) in the `issues/` directory.
@@ -12,13 +14,15 @@ Answers must be technical and honest.
 
 ## Tech stack
 - target: nim
-- sources: C, C++, JS
+- sources: C, C++, JS/TS
 - clang
 - heysokam's `astTF` and `slate`
 
 
 ## Architecture
-- `henka` uses `libclang` to traverse C/C++ header files, building an intermediate representation in `astTF`, then translates the tree into `nim` using `slate`.
+- `henka` uses `libclang` to traverse C/C++ header files, building an intermediate representation in `astTF`.
+- On Javascript/Typescript, it uses the Typescript compiler's API instead to build the `astTF` intermediate representation.
+- Then the IR is translated into `nim` using `slate`.
 
 
 ## Code style
