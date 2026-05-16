@@ -55,7 +55,7 @@ const cFeatures = [
   feature(check, "functions"),
   feature(check, "passthrough_pragmas"),
   feature(check, "respect_ordering"),
-  feature(check, "single_file"),
+  feature(check, "externc"),
   feature(check, "not_regress_on_bugs"),
 ]
 
@@ -77,6 +77,8 @@ const cppFeatures = [
   (check, "template_generics"),
   (check, "references"),
   (check, "enums_scoped"),
+  (check, "externc"),
+  (check, "defines"),
   (run,   "enums_unscoped"),
 ]
 

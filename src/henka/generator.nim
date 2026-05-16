@@ -66,7 +66,10 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
   of CXCursor_ClassDecl        : return conv[].toClass(cursor, name)
   of CXCursor_ClassTemplate    : return conv[].toClassTemplate(cursor, name)
   of CXCursor_FunctionTemplate : return conv[].toFunctionTemplate(cursor, name)
-  of CXCursor_Namespace        : return CXChildVisit_Recurse.cint
+  of CXCursor_Namespace,
+     CXCursor_LinkageSpec      :
+    discard clang_visitChildren(cursor, visitor, clientData)
+    return CXChildVisit_Continue.cint
   of CXCursor_TypeAliasDecl    : return conv[].toAlias(cursor, name)
   else                         : return CXChildVisit_Continue.cint
 
