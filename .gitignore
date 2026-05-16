@@ -9,4 +9,6 @@ selfhost
 src/henka/generator
 tests/**/bindings.nim
 tests/functional
-
+tests/**/*.dlsl
+tests/**/*.dylib
+tests/**/*.so

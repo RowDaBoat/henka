@@ -197,7 +197,7 @@ proc generate*(
 
     if conv.linkMode == LinkMode.dynlib and moduleIdx == 0 and conv.dynlibName.len > 0:
       let nameIdent = conv.addName(conv.dynlibName)
-      let valueLoc  = conv.addSrc("\"" & conv.dynlibPath & "\"")
+      let valueLoc  = conv.addSrc(conv.dynlibPath)
       let valueExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.string, value: valueLoc)))
       let pragmaId  = conv.addPragma("strdefine")
       let bindingId = conv.ast.add_binding(Binding(name: some(nameIdent), value: some(valueExpr), pragmas: some(pragmaId)))
