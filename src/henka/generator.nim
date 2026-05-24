@@ -3,6 +3,7 @@ from std/os import paramStr, paramCount, splitFile, changeFileExt, parentDir
 from std/strutils import join, startsWith
 # @deps nonim
 import nonim/ast as astTF
+import nonim/codegen/output
 import nonim
 # @deps henka
 import ./[clang, common, pragmas, statements, cpp, callbacks, enums]
