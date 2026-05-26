@@ -88,11 +88,38 @@ proc toProcType*(conv: var Converter, cursor: CXCursor, name: string): cint =
   conv.seenTypedefs.incl renamedAlias
 
   if conv.isCpp and conv.linkMode != LinkMode.dynlib:
-    let helperText =
-      "proc to" & renamedAlias & " *(value :pointer) :" & renamedAlias & " {.inline.}=\n" &
-      "  cast[" & renamedAlias & "](value)"
-    let helperLoc = conv.addSrc(helperText)
-    conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: helperLoc)))
+    let helperName      = conv.addName("to" & renamedAlias)
+    let valueIdent      = conv.addName("value")
+    let pointerTypeId   = conv.add_primitive("pointer")
+    let pointerTypeExpr = conv.ast.add_expression_type(pointerTypeId)
+    let valueBinding    = conv.ast.add_binding(Binding(name: some(valueIdent), dataType: some(pointerTypeExpr), private: some(true)))
+
+    let returnTypeId    = conv.add_primitive(renamedAlias)
+    let returnTypeExpr  = conv.ast.add_expression_type(returnTypeId)
+
+    let inlinePragma    = conv.addPragma("inline")
+
+    let castLoc         = conv.addSrc("cast")
+    let castName        = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.generic, value: castLoc)))
+    let genericTypeId   = conv.add_primitive(renamedAlias)
+    let genericTypeExpr = conv.ast.add_expression_type(genericTypeId)
+    let genericBinding  = conv.ast.add_binding(Binding(dataType: some(genericTypeExpr)))
+    let valueExprId     = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: valueIdent)))
+    let argBinding      = conv.ast.add_binding(Binding(value: some(valueExprId)))
+    let castCallId      = conv.ast.add_expression(Expression(kind: astTF.eCall, call: ExpressionCall(name: castName, generics: some(genericBinding), arguments: some(argBinding))))
+
+    let depthId         = conv.ast.add_depth(Depth(indent: some(1'u64)))
+    let bodyStmtId      = conv.ast.add_statement(Statement(kind: astTF.sExpression, expression: StatementExpression(id: castCallId, depth: some(depthId))))
+
+    let helperProcId = conv.ast.add_procedure(Procedure(
+      name       : some(helperName),
+      arguments  : some(valueBinding),
+      returnType : some(returnTypeExpr),
+      impure     : some(true),
+      pragmas    : some(inlinePragma),
+      body       : some(bodyStmtId),
+    ))
+    conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: helperProcId)))
 
   result = CXChildVisit_Continue.cint
 
