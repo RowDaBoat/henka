@@ -1,6 +1,8 @@
 import bindings
 
-proc onLost(device: ptr Device) {.cdecl.} = discard
+proc callback(param: ptr ConstStruct) {.cdecl.} = discard
 
 var info: CallbackInfo
-info.callback = onLost
+info.callback = toCallback(callback)
+
+var info2 = CallbackInfo(callback: toCallback(callback))

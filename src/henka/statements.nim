@@ -53,9 +53,25 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let targetId  = conv.convertType(underlying)
   let aliasName = conv.addRenamed(Typedef, name)
   let targetExpr = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: targetId)))
-  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr)))
+
+  let isFunctionPointer = underlying.kind == CXType_Pointer and clang_getPointeeType(underlying).kind == CXType_FunctionProto
+  var aliasPragmas :Option[astTF.Id]= none(astTF.Id)
+  if isFunctionPointer and conv.linkMode != LinkMode.dynlib:
+    aliasPragmas = some(conv.chainPragmas(@[
+      (conv.importPragmaKey, name),
+      conv.headerPragma,
+    ]))
+
+  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr, pragmas: aliasPragmas)))
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
   conv.seenTypedefs.incl renamedAlias
+
+  if isFunctionPointer and conv.linkMode != LinkMode.dynlib:
+    let helperText =
+      "proc to" & renamedAlias & " *(value :pointer) :" & renamedAlias & " {.inline.}=\n" &
+      "  cast[" & renamedAlias & "](value)"
+    let helperLoc = conv.addSrc(helperText)
+    conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: helperLoc)))
 
   result = CXChildVisit_Continue.cint
 

@@ -73,7 +73,6 @@ proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   of astTF.sPassthrough : previous.passthrough.next = some(nextId)
   of astTF.sPragma      : previous.pragma.next      = some(nextId)
   of astTF.sExpression  : previous.expression.next  = some(nextId)
-  of astTF.sKeyword     : previous.keyword.next     = some(nextId)
   of astTF.sBranch      : previous.branch.next      = some(nextId)
   conv.ast.data.statements.get[previousId] = previous
 
