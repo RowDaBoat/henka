@@ -50,23 +50,44 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
     return CXChildVisit_Continue.cint
 
   let commentOpt = conv.add_comment(cursor)
-  let targetId  = conv.convertType(underlying)
-  let aliasName = conv.addRenamed(Typedef, name)
+  let targetId   = conv.convertType(underlying)
+  let aliasName  = conv.addRenamed(Typedef, name)
   let targetExpr = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: targetId)))
+  let aliasId    = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr)))
 
-  let isFunctionPointer = underlying.kind == CXType_Pointer and clang_getPointeeType(underlying).kind == CXType_FunctionProto
-  var aliasPragmas :Option[astTF.Id]= none(astTF.Id)
-  if isFunctionPointer and conv.linkMode != LinkMode.dynlib:
-    aliasPragmas = some(conv.chainPragmas(@[
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
+  conv.seenTypedefs.incl renamedAlias
+
+  result = CXChildVisit_Continue.cint
+
+
+proc isFunctionPointer*(conv: Converter, cursor: CXCursor): bool =
+  let underlying = clang_getTypedefDeclUnderlyingType(cursor)
+  underlying.kind == CXType_Pointer and clang_getPointeeType(underlying).kind == CXType_FunctionProto
+
+
+proc toProcType*(conv: var Converter, cursor: CXCursor, name: string): cint =
+  let underlying = clang_getTypedefDeclUnderlyingType(cursor)
+  let commentOpt = conv.add_comment(cursor)
+  let targetId   = conv.convertType(underlying)
+  let aliasName  = conv.addRenamed(Typedef, name)
+
+  let procEntryId = conv.ast.data.types.get[targetId].procedure.id
+  conv.ast.data.procedures.get[procEntryId].name = some(aliasName)
+  conv.ast.data.procedures.get[procEntryId].private = some(false)
+
+  if conv.linkMode != LinkMode.dynlib:
+    conv.ast.data.types.get[targetId].procedure.pragmas = some(conv.chainPragmas(@[
       (conv.importPragmaKey, name),
       conv.headerPragma,
     ]))
 
-  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr, pragmas: aliasPragmas)))
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: targetId, comment: commentOpt)))
+
+  let renamedAlias = conv.sanitizer(conv.renamer(Typedef, name))
   conv.seenTypedefs.incl renamedAlias
 
-  if isFunctionPointer and conv.linkMode != LinkMode.dynlib:
+  if conv.isCpp and conv.linkMode != LinkMode.dynlib:
     let helperText =
       "proc to" & renamedAlias & " *(value :pointer) :" & renamedAlias & " {.inline.}=\n" &
       "  cast[" & renamedAlias & "](value)"
