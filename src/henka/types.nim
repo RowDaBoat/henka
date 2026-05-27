@@ -165,12 +165,16 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   result = conv.add_primitive(named)
 
 
-proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
+proc toProcedurePrototype*(
+    conv: var Converter,
+    typ: CXType,
+    pragmaId :Option[astTF.Id]= none(astTF.Id),
+    name: string = ""
+  ): astTF.Id =
   let retType = clang_getResultType(typ)
   let retOpt  = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
   let argc    = clang_getNumArgTypes(typ)
-  var firstArg: Option[astTF.Id] = none(astTF.Id)
-  var argIds: seq[astTF.Id]      = @[]
+  var argIds: seq[astTF.Id] = @[]
 
   for idx in 0..<argc:
     let argType   = clang_getArgType(typ, idx.cuint)
@@ -180,21 +184,22 @@ proc toProcedure*(conv: var Converter, typ: CXType): astTF.Id =
     let bindingId = conv.ast.add_binding(Binding(name: some(argName), dataType: some(argTypeExpr), private: some(true)))
     argIds.add bindingId
 
-  if argIds.len > 0:
-    for idx in 0..<argIds.len - 1:
-      conv.ast.data.bindings.get[argIds[idx]].next = some(argIds[idx + 1])
-    firstArg = some(argIds[0])
+  let firstArg = conv.linkBindingChain(argIds)
+
+  let procName =
+    if name.len > 0: some(conv.addRenamed(Typedef, name))
+    else:            none(astTF.Identifier)
 
   let cdeclPragma = conv.addPragma("cdecl")
   let procId   = conv.ast.add_procedure(Procedure(
+    name       : procName,
     arguments  : firstArg,
     returnType : retOpt,
     impure     : some(true),
-    private    : some(true),
     pragmas    : some(cdeclPragma)
   ))
 
-  result = conv.ast.add_type(Type(kind: astTF.tProcedure, procedure: TypeProcedure(id: procId)))
+  result = conv.ast.add_type(Type(kind: astTF.tProcedure, procedure: TypeProcedure(id: procId, pragmas: pragmaId)))
 
 
 proc toArray*(conv: var Converter, typ: CXType): astTF.Id =
@@ -234,8 +239,8 @@ proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
     of CXType_MemberPointer   : conv.add_primitive("pointer")
     of CXType_Elaborated      : conv.toObject(typ)
     of CXType_Record          : conv.toObject(typ)
-    of CXType_FunctionProto   : conv.toProcedure(typ)
-    of CXType_FunctionNoProto : conv.toProcedure(typ)
+    of CXType_FunctionProto   : conv.toProcedurePrototype(typ)
+    of CXType_FunctionNoProto : conv.toProcedurePrototype(typ)
     of CXType_LValueReference : conv.toReference(typ)
     of CXType_RValueReference : conv.toReference(typ)
     of CXType_ConstantArray   : conv.toArray(typ)

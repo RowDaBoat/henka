@@ -69,26 +69,31 @@ proc isFunctionPointer*(conv: Converter, cursor: CXCursor): bool =
 proc toProcType*(conv: var Converter, cursor: CXCursor, name: string): cint =
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   let commentOpt = conv.add_comment(cursor)
-  let targetId   = conv.convertType(underlying)
-  let aliasName  = conv.addRenamed(Typedef, name)
+  let funcType =
+    if underlying.kind == CXType_Pointer: clang_getPointeeType(underlying)
+    else: underlying
 
-  let procEntryId = conv.ast.data.types.get[targetId].procedure.id
-  conv.ast.data.procedures.get[procEntryId].name = some(aliasName)
-  conv.ast.data.procedures.get[procEntryId].private = some(false)
-
+  var pragmas :seq[(system.string, system.string)]= @[]
   if conv.linkMode != LinkMode.dynlib:
-    conv.ast.data.types.get[targetId].procedure.pragmas = some(conv.chainPragmas(@[
-      (conv.importPragmaKey, name),
-      conv.headerPragma,
-    ]))
+    pragmas.add( (conv.importPragmaKey, name) )
+    pragmas.add( conv.headerPragma )
 
-  conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: targetId, comment: commentOpt)))
+  let pragmaId =
+    if pragmas.len != 0 : some(conv.chainPragmas(pragmas))
+    else                : none(astTF.Id)
+  let procTypeId = conv.toProcedurePrototype(funcType, pragmaId, name)
 
-  let renamedAlias = conv.sanitizer(conv.renamer(Typedef, name))
-  conv.seenTypedefs.incl renamedAlias
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type` : StatementType(
+    id      : procTypeId,
+    comment : commentOpt,
+    # WARN:
+    #  Pragmas should be here, but there is a deeper issue with codegen for nim.
+    #  Types dont have pragmas, their statements have them.
+    #  The pragma should go here in place of this warning.
+  )))
 
   if conv.isCpp and conv.linkMode != LinkMode.dynlib:
-    conv.generateFunctionPointerHelper(renamedAlias)
+    conv.generateFunctionPointerHelper(procTypeId)
 
   result = CXChildVisit_Continue.cint
 

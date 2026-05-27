@@ -365,7 +365,11 @@ proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :c
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId)))
   return CXChildVisit_Continue.cint
 
-proc generateFunctionPointerHelper*(conv :var Converter, renamedAlias: string) =
+proc generateFunctionPointerHelper*(conv :var Converter, procTypeId: astTF.Id) =
+  let procedureId = conv.ast.typ(procTypeId).procedure.id
+  let nameLocation = conv.ast.procedure(procedureId).name.get.location
+  let renamedAlias = conv.ast.source(conv.module, nameLocation, false)
+
   let helperName      = conv.addName("to" & renamedAlias)
   let valueIdent      = conv.addName("value")
   let pointerTypeId   = conv.add_primitive("pointer")
