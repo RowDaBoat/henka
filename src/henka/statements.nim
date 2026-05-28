@@ -3,7 +3,7 @@ from std/strutils import join, startsWith, find, contains
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
-import ./[clang, common, comments, pragmas, types, enums]
+import ./[clang, common, comments, pragmas, types, enums, cpp]
 
 
 proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
@@ -50,12 +50,50 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
     return CXChildVisit_Continue.cint
 
   let commentOpt = conv.add_comment(cursor)
-  let targetId  = conv.convertType(underlying)
-  let aliasName = conv.addRenamed(Typedef, name)
+  let targetId   = conv.convertType(underlying)
+  let aliasName  = conv.addRenamed(Typedef, name)
   let targetExpr = conv.ast.add_expression(Expression(kind: astTF.eType, `type`: ExpressionType(id: targetId)))
-  let aliasId   = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr)))
+  let aliasId    = conv.ast.add_type(Type(kind: astTF.tAlias, alias: TypeAlias(name: some(aliasName), target: targetExpr)))
+
   conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: aliasId, comment: commentOpt)))
   conv.seenTypedefs.incl renamedAlias
+
+  result = CXChildVisit_Continue.cint
+
+
+proc isFunctionPointer*(conv: Converter, cursor: CXCursor): bool =
+  let underlying = clang_getTypedefDeclUnderlyingType(cursor)
+  underlying.kind == CXType_Pointer and clang_getPointeeType(underlying).kind == CXType_FunctionProto
+
+
+proc toProcType*(conv: var Converter, cursor: CXCursor, name: string): cint =
+  let underlying = clang_getTypedefDeclUnderlyingType(cursor)
+  let commentOpt = conv.add_comment(cursor)
+  let funcType =
+    if underlying.kind == CXType_Pointer: clang_getPointeeType(underlying)
+    else: underlying
+
+  var pragmas :seq[(system.string, system.string)]= @[]
+  if conv.linkMode != LinkMode.dynlib:
+    pragmas.add( (conv.importPragmaKey, name) )
+    pragmas.add( conv.headerPragma )
+
+  let pragmaId =
+    if pragmas.len != 0 : some(conv.chainPragmas(pragmas))
+    else                : none(astTF.Id)
+  let procTypeId = conv.toProcedurePrototype(funcType, pragmaId, name)
+
+  conv.add_statement_chained(Statement(kind: astTF.sType, `type` : StatementType(
+    id      : procTypeId,
+    comment : commentOpt,
+    # WARN:
+    #  Pragmas should be here, but there is a deeper issue with codegen for nim.
+    #  Types dont have pragmas, their statements have them.
+    #  The pragma should go here in place of this warning.
+  )))
+
+  if conv.isCpp and conv.linkMode != LinkMode.dynlib:
+    conv.generateFunctionPointerHelper(procTypeId)
 
   result = CXChildVisit_Continue.cint
 

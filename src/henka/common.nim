@@ -61,6 +61,15 @@ proc addRenamed*(conv: var Converter, kind: LabelKind, cName: system.string): as
   result = conv.addName(sanitized)
 
 
+proc linkBindingChain*(conv: var Converter, bindingIds: seq[astTF.Id]): Option[astTF.Id] =
+  if bindingIds.len > 0:
+    for index in 0..<bindingIds.len - 1:
+      conv.ast.data.bindings.get[bindingIds[index]].next = some(bindingIds[index + 1])
+    result = some(bindingIds[0])
+  else:
+    result = none(astTF.Id)
+
+
 proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   var previous = conv.ast.data.statements.get[previousId]
   case previous.kind
@@ -73,7 +82,6 @@ proc linkAfter*(conv: var Converter, previousId: astTF.Id, nextId: astTF.Id) =
   of astTF.sPassthrough : previous.passthrough.next = some(nextId)
   of astTF.sPragma      : previous.pragma.next      = some(nextId)
   of astTF.sExpression  : previous.expression.next  = some(nextId)
-  of astTF.sKeyword     : previous.keyword.next     = some(nextId)
   of astTF.sBranch      : previous.branch.next      = some(nextId)
   conv.ast.data.statements.get[previousId] = previous
 
