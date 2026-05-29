@@ -55,7 +55,9 @@ proc visitor(cursor: CXCursor, parent: CXCursor, clientData: pointer): cint {.cd
     conv[].seenSymbols.incl name
 
   case kind
-  of CXCursor_TypedefDecl      : return conv[].toAlias(cursor, name)
+  of CXCursor_TypedefDecl      :
+    if conv[].isFunctionPointer(cursor): return conv[].toProcType(cursor, name)
+    else                               : return conv[].toAlias(cursor, name)
   of CXCursor_StructDecl       :
     if conv[].isCpp: return conv[].toClass(cursor, name, defaultPublic = true)
     else:            return conv[].toObject(cursor, name)

@@ -1,9 +1,9 @@
-struct Device {
-    int unused;
+struct ConstStruct {
+    int field;
 };
 
-typedef void (*LostCallback)(Device const* device);
+typedef void (*Callback)(ConstStruct const* param);
 
 struct CallbackInfo {
-    LostCallback callback;
+    Callback callback;
 };
