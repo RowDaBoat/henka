@@ -145,23 +145,29 @@ export function stitchChains(conv: Converter) {
   if (lastTypeStmt !== undefined && conv.firstOtherStmt !== undefined) {
     link_after(conv, lastTypeStmt, conv.firstOtherStmt)
   }
-  const firstTypeStmt = conv.firstRootTypeStmt ?? conv.firstChildTypeStmt
-  conv.ast.data.modules[conv.moduleId].body = firstTypeStmt ?? conv.firstOtherStmt
-
   if (conv.needsNull) {
-    const passthroughLoc = addSrc(conv, "type Null* = distinct JsObject\n")
+    const distinctId = conv.ast.data.types.length
+    conv.ast.data.types.push({ primitive: { name: addName(conv, "JsObject"), keyword: addName(conv, "distinct") } })
+    const aliasId = conv.ast.data.types.length
+    conv.ast.data.types.push({ alias: { name: addName(conv, "Null"), target: addTypeExpr(conv, distinctId) } })
     const stmtId = conv.ast.data.statements.length
-    conv.ast.data.statements.push({ passthrough: { location: passthroughLoc, next: conv.ast.data.modules[conv.moduleId].body } })
-    conv.ast.data.modules[conv.moduleId].body = stmtId
+    conv.ast.data.statements.push({ type: { id: aliasId, next: conv.firstRootTypeStmt } })
+    conv.firstRootTypeStmt = stmtId
     conv.needsJsffi = true
   }
 
   if (conv.needsUndefined) {
-    const passthroughLoc = addSrc(conv, "type Undefined* = distinct pointer\n")
+    const ptrId = conv.ast.data.types.length
+    conv.ast.data.types.push({ primitive: { name: addName(conv, "pointer"), keyword: addName(conv, "distinct") } })
+    const aliasId = conv.ast.data.types.length
+    conv.ast.data.types.push({ alias: { name: addName(conv, "Undefined"), target: addTypeExpr(conv, ptrId) } })
     const stmtId = conv.ast.data.statements.length
-    conv.ast.data.statements.push({ passthrough: { location: passthroughLoc, next: conv.ast.data.modules[conv.moduleId].body } })
-    conv.ast.data.modules[conv.moduleId].body = stmtId
+    conv.ast.data.statements.push({ type: { id: aliasId, next: conv.firstRootTypeStmt } })
+    conv.firstRootTypeStmt = stmtId
   }
+
+  const firstTypeStmt = conv.firstRootTypeStmt ?? conv.firstChildTypeStmt
+  conv.ast.data.modules[conv.moduleId].body = firstTypeStmt ?? conv.firstOtherStmt
 
   if (conv.needsOptions) {
     const keyword = addName(conv, "import")

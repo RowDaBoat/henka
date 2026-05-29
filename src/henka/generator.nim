@@ -267,5 +267,5 @@ proc generate*(
 #_____________________________
 proc fromJson*(json: system.string): Output =
   let ast = astTF.fromJson(json)
-  result = slate.codegen.nim(ast)
+  result = nonim.codegen.nim(ast)
 

@@ -1,6 +1,6 @@
 import ts from "typescript"
 import type { Converter } from "./converter"
-import { addName, sanitize, addSrc, addImportjsPragma, pushLiteralExpr, addTypeExpr } from "./helpers"
+import { addName, sanitize, addSrc, addImportjsPragma, pushLiteralExpr, addTypeExpr, nimNormalize } from "./helpers"
 import { link_statement } from "./links"
 import { mapType } from "./types"
 
@@ -12,7 +12,7 @@ export function emitOrDedup(
   retTypeNode: ts.TypeNode | undefined,
   pattern: string,
   selfType?: number,
-  typeParams?: ts.NodeArray<ts.TypeParameterDeclaration>,
+  typeParams?: readonly ts.TypeParameterDeclaration[],
   dedupKey?: string,
 ): void {
   const mapKey = dedupKey ?? procName
@@ -44,16 +44,18 @@ export function addProc(
   retTypeNode: ts.TypeNode | undefined,
   pattern: string,
   selfType?: number,
-  typeParams?: ts.NodeArray<ts.TypeParameterDeclaration>,
+  typeParams?: readonly ts.TypeParameterDeclaration[],
 ) {
   if (!conv.ast.data.expressions) conv.ast.data.expressions = []
   if (!conv.ast.data.bindings) conv.ast.data.bindings = []
   if (!conv.ast.data.procedures) conv.ast.data.procedures = []
   if (!conv.ast.data.statements) conv.ast.data.statements = []
+  conv.nimNames.add(nimNormalize(name))
   const funcName = addName(conv, name)
   let retType: number | undefined
   if (retTypeNode) {
-    const retTypeId = mapType(conv, retTypeNode)
+    const isThisType = retTypeNode.kind === ts.SyntaxKind.ThisType
+    const retTypeId = (isThisType && selfType !== undefined) ? selfType : mapType(conv, retTypeNode)
     retType = conv.ast.data.expressions.length
     conv.ast.data.expressions.push({ type: { id: retTypeId } })
   }

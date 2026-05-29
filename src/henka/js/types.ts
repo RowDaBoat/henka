@@ -239,6 +239,7 @@ export function mapType(conv: Converter, node: ts.TypeNode | undefined): number 
     case ts.SyntaxKind.TemplateLiteralType:
       conv.ast.data.types.push({ primitive: { name: addName(conv, "cstring") } })
       return conv.ast.data.types.length - 1
+    case ts.SyntaxKind.ThisType:
     case ts.SyntaxKind.AnyKeyword:
     case ts.SyntaxKind.ObjectKeyword:
     case ts.SyntaxKind.UnknownKeyword:

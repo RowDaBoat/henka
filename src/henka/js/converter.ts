@@ -1,6 +1,7 @@
 import ts from "typescript"
 import type { astTF } from "@heysokam/astTF"
 import { statement_function, statement_class, statement_enum, statement_variable, statement_type, statement_namespace } from "./statements"
+import { prefixed, nimNormalize } from "./helpers"
 import { patchInheritableParents, resolveOverloadDedup, sortChildTypes, stitchChains } from "./postprocess"
 
 export interface Converter {
@@ -19,6 +20,7 @@ export interface Converter {
   procLiterals: number[][]
   externalTypes: Map<string, number>
   uniqueNames: Map<string, number>
+  nimNames: Set<string>
   namespaceStack: string[]
   firstRootTypeStmt: number | undefined
   lastRootTypeStmt: number | undefined
@@ -61,6 +63,7 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     procLiterals: [],
     externalTypes: new Map(),
     uniqueNames: new Map(),
+    nimNames: new Set(),
     namespaceStack: [],
     firstRootTypeStmt: undefined,
     lastRootTypeStmt: undefined,
@@ -70,6 +73,28 @@ export function convert(ast: astTF, moduleId: number, sourceFile: ts.SourceFile,
     lastOtherStmt: undefined,
   }
 
+  function prescan(node: ts.Node) {
+    if (ts.isClassDeclaration(node) && node.name)
+      conv.nimNames.add(nimNormalize(prefixed(conv, node.name.text)))
+    if (ts.isInterfaceDeclaration(node) && node.name)
+      conv.nimNames.add(nimNormalize(prefixed(conv, node.name.text)))
+    if (ts.isTypeAliasDeclaration(node))
+      conv.nimNames.add(nimNormalize(prefixed(conv, node.name.text)))
+    if (ts.isEnumDeclaration(node))
+      conv.nimNames.add(nimNormalize(prefixed(conv, node.name.text)))
+    if (ts.isVariableStatement(node))
+      for (const decl of node.declarationList.declarations)
+        if (ts.isIdentifier(decl.name))
+          conv.nimNames.add(nimNormalize(prefixed(conv, decl.name.text)))
+    if (ts.isFunctionDeclaration(node) && node.name)
+      conv.nimNames.add(nimNormalize(prefixed(conv, node.name.text)))
+    if (ts.isModuleDeclaration(node) && node.name && ts.isIdentifier(node.name) && node.body) {
+      conv.namespaceStack.push(node.name.text)
+      if (ts.isModuleBlock(node.body)) ts.forEachChild(node.body, prescan)
+      conv.namespaceStack.pop()
+    }
+  }
+  ts.forEachChild(sourceFile, prescan)
   ts.forEachChild(sourceFile, n => ts_visitor(conv, n))
   patchInheritableParents(conv)
   resolveOverloadDedup(conv)

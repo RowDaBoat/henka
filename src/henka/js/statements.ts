@@ -1,6 +1,6 @@
 import ts from "typescript"
 import type { Converter } from "./converter"
-import { addName, sanitize, prefixed, jsPattern, unquote, addSrc, addTypeExpr, addImportjsPragma, addInheritablePragma } from "./helpers"
+import { addName, sanitize, prefixed, jsPattern, unquote, addSrc, addTypeExpr, addImportjsPragma, addInheritablePragma, nimNormalize, uniqueNimName } from "./helpers"
 import { link_statement } from "./links"
 import { mapType } from "./types"
 import { emitOrDedup, addProc } from "./procedures"
@@ -27,6 +27,7 @@ export function statement_class(conv: Converter, node: ts.Node) {
   const distinctTargetId = conv.ast.data.types.length - 1
   const aliasId = conv.ast.data.types.length
   conv.ast.data.types.push({ alias: { name: addName(conv, prefixedClassName), target: addTypeExpr(conv, distinctTargetId) } })
+  conv.nimNames.add(nimNormalize(prefixedClassName))
   const typeStmtId = conv.ast.data.statements.length
   conv.ast.data.statements.push({ type: { id: aliasId } })
   link_statement(conv, typeStmtId)
@@ -34,9 +35,15 @@ export function statement_class(conv: Converter, node: ts.Node) {
   // Emit fields as getter procs
   for (const member of node.members) {
     if (!ts.isPropertyDeclaration(member) || !member.name) continue
-    const fieldName = member.name.getText()
+    const rawFieldName = unquote(member.name.getText())
+    let fieldName = sanitize(conv, rawFieldName)
     const fieldTypeId = mapType(conv, member.type)
-    const funcName = addName(conv, prefixed(conv, fieldName))
+    const baseProcName = prefixed(conv, fieldName)
+    let procName = conv.nimNames.has(nimNormalize(baseProcName))
+      ? uniqueNimName(conv, prefixedClassName + "_" + fieldName)
+      : baseProcName
+    conv.nimNames.add(nimNormalize(procName))
+    const funcName = addName(conv, procName)
     const selfTypeId = conv.ast.data.types.length
     conv.ast.data.types.push({ primitive: { name: addName(conv, prefixedClassName) } })
     const selfTypeExpr = conv.ast.data.expressions.length
@@ -45,14 +52,26 @@ export function statement_class(conv: Converter, node: ts.Node) {
     conv.ast.data.bindings.push({ name: addName(conv, "self"), dataType: selfTypeExpr, private: true })
     const fieldRetExpr = conv.ast.data.expressions.length
     conv.ast.data.expressions.push({ type: { id: fieldTypeId } })
+    let firstGeneric: number | undefined
+    if (node.typeParameters && node.typeParameters.length > 0) {
+      let prevGeneric: number | undefined
+      for (const tp of node.typeParameters) {
+        const genericId = conv.ast.data.bindings.length
+        conv.ast.data.bindings.push({ name: addName(conv, tp.name.text), private: true })
+        if (prevGeneric !== undefined) conv.ast.data.bindings[prevGeneric].next = genericId
+        if (firstGeneric === undefined) firstGeneric = genericId
+        prevGeneric = genericId
+      }
+    }
     const procId = conv.ast.data.procedures.length
     conv.ast.data.procedures.push({
       name: funcName,
       arguments: selfBinding,
       returnType: fieldRetExpr,
+      generics: firstGeneric,
       impure: true,
     })
-    const pragmaId = addImportjsPragma(conv, "#." + fieldName)
+    const pragmaId = addImportjsPragma(conv, "#." + rawFieldName)
     conv.ast.data.procedures[procId].pragmas = pragmaId
     const stmtId = conv.ast.data.statements.length
     conv.ast.data.statements.push({ procedure: { id: procId } })
@@ -66,7 +85,7 @@ export function statement_class(conv: Converter, node: ts.Node) {
   // Constructor
   for (const member of node.members) {
     if (!ts.isConstructorDeclaration(member)) continue
-    addProc(conv, "new" + prefixedClassName, member.parameters, undefined, "new " + jsClassName + "(@)")
+    addProc(conv, "new" + prefixedClassName, member.parameters, undefined, "new " + jsClassName + "(@)", undefined, node.typeParameters)
     const lastProc = conv.ast.data.procedures[conv.ast.data.procedures.length - 1]
     const selfRetExpr = conv.ast.data.expressions.length
     conv.ast.data.expressions.push({ type: { id: selfTypeId } })
@@ -81,42 +100,33 @@ export function statement_class(conv: Converter, node: ts.Node) {
     const isStatic = member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword)
     const pattern = isStatic ? jsClassName + "." + methodName + "(@)" : "#." + methodName + "(@)"
     const self = isStatic ? undefined : selfTypeId
-    addProc(conv, prefixed(conv, methodName), member.parameters, member.type, pattern, self)
+    const baseProcName = isStatic ? prefixedClassName + "_" + sanitize(conv, methodName) : prefixed(conv, methodName)
+    let procName = conv.nimNames.has(nimNormalize(baseProcName))
+      ? uniqueNimName(conv, prefixedClassName + "_" + sanitize(conv, methodName))
+      : baseProcName
+    const classParamNames = new Set((node.typeParameters ?? []).map(tp => tp.name.text))
+    const methodOnlyParams = (member.typeParameters ?? []).filter(tp => !classParamNames.has(tp.name.text))
+    const mergedTypeParams: ts.TypeParameterDeclaration[] = [
+      ...(node.typeParameters ?? []),
+      ...methodOnlyParams,
+    ]
+    addProc(conv, procName, member.parameters, member.type, pattern, self, mergedTypeParams.length > 0 ? mergedTypeParams : undefined)
   }
 }
 
 
 export function statement_enum(conv: Converter, node: ts.Node) {
   if (!ts.isEnumDeclaration(node)) return
+  if (!conv.ast.data.pragmas) conv.ast.data.pragmas = []
   const enumName = prefixed(conv, node.name.text)
+  conv.nimNames.add(nimNormalize(enumName))
 
-  // Detect if string enum
-  const isStringEnum = node.members.some(m =>
-    m.initializer && ts.isStringLiteral(m.initializer)
-  )
-
-  // Emit type alias: EnumName = cint or cstring
-  const baseTypeId = conv.ast.data.types.length
-  conv.ast.data.types.push({ primitive: { name: addName(conv, isStringEnum ? "cstring" : "cint") } })
-  const aliasTypeId = conv.ast.data.types.length
-  conv.ast.data.types.push({ alias: { name: addName(conv, enumName), target: addTypeExpr(conv, baseTypeId) } })
-  const typeStmtId = conv.ast.data.statements.length
-  conv.ast.data.statements.push({ type: { id: aliasTypeId } })
-  link_statement(conv, typeStmtId)
-
-  // Emit const for each member
-  const enumTypeRefName = enumName
+  let firstValue: number | undefined
+  let prevValue: number | undefined
   for (const member of node.members) {
     if (!member.name) continue
     const memberName = member.name.getText()
-
-    // Get the value
     let valueExprId: number | undefined
-    const enumTypeId = conv.ast.data.types.length
-    conv.ast.data.types.push({ primitive: { name: addName(conv, enumTypeRefName) } })
-    const enumTypeExpr = conv.ast.data.expressions.length
-    conv.ast.data.expressions.push({ type: { id: enumTypeId } })
-
     if (member.initializer) {
       if (ts.isNumericLiteral(member.initializer)) {
         valueExprId = conv.ast.data.expressions.length
@@ -126,23 +136,31 @@ export function statement_enum(conv: Converter, node: ts.Node) {
         conv.ast.data.expressions.push({ literal: { kind: 2, value: addSrc(conv, member.initializer.text) } })
       }
     } else {
-      // Auto-increment: use the member index
       const idx = node.members.indexOf(member)
       valueExprId = conv.ast.data.expressions.length
       conv.ast.data.expressions.push({ literal: { kind: 0, value: addSrc(conv, String(idx)) } })
     }
-
     const bindingId = conv.ast.data.bindings.length
-    conv.ast.data.bindings.push({
-      name: addName(conv, memberName),
-      dataType: enumTypeExpr,
-      value: valueExprId,
-    })
-
-    const stmtId = conv.ast.data.statements.length
-    conv.ast.data.statements.push({ variable: { id: bindingId } })
-    link_statement(conv, stmtId)
+    conv.ast.data.bindings.push({ name: addName(conv, memberName), value: valueExprId, private: true })
+    if (prevValue !== undefined) conv.ast.data.bindings[prevValue].next = bindingId
+    if (firstValue === undefined) firstValue = bindingId
+    prevValue = bindingId
   }
+
+  const pureKey = conv.ast.data.expressions.length
+  conv.ast.data.expressions.push({ identifier: { name: addName(conv, "pure") } })
+  const pragmaId = conv.ast.data.pragmas.length
+  conv.ast.data.pragmas.push({ key: pureKey })
+
+  const enumTypeId = conv.ast.data.types.length
+  conv.ast.data.types.push({ enumeration: {
+    name: addName(conv, enumName),
+    values: firstValue,
+    pragmas: pragmaId,
+  } })
+  const stmtId = conv.ast.data.statements.length
+  conv.ast.data.statements.push({ type: { id: enumTypeId } })
+  link_statement(conv, stmtId)
 }
 
 
@@ -150,7 +168,9 @@ export function statement_variable(conv: Converter, node: ts.Node) {
   if (!ts.isVariableStatement(node)) return
   for (const decl of node.declarationList.declarations) {
     if (!ts.isIdentifier(decl.name)) continue
-    const varName = addName(conv, prefixed(conv, decl.name.text))
+    const varPrefixed = uniqueNimName(conv, prefixed(conv, decl.name.text))
+    conv.nimNames.add(nimNormalize(varPrefixed))
+    const varName = addName(conv, varPrefixed)
 
     let valueExprId: number | undefined
     if (decl.initializer && ts.isNumericLiteral(decl.initializer)) {
@@ -260,7 +280,13 @@ function statement_interface_mergeExisting(conv: Converter, node: ts.InterfaceDe
     const methodName = member.name.getText()
     const selfTypeId = conv.ast.data.types.length
     conv.ast.data.types.push({ primitive: { name: addName(conv, ifaceName) } })
-    emitOrDedup(conv, prefixed(conv, methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, node.typeParameters, ifaceName + "." + methodName)
+    const classParamNames = new Set((node.typeParameters ?? []).map(tp => tp.name.text))
+    const methodOnlyParams = ((ts.isMethodSignature(member) && member.typeParameters) ? [...member.typeParameters] : []).filter(tp => !classParamNames.has(tp.name.text))
+    const mergedTypeParams: ts.TypeParameterDeclaration[] = [
+      ...(node.typeParameters ?? []),
+      ...methodOnlyParams,
+    ]
+    emitOrDedup(conv, prefixed(conv, methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, mergedTypeParams.length > 0 ? mergedTypeParams : undefined, ifaceName + "." + methodName)
   }
   return true
 }
@@ -286,23 +312,54 @@ function statement_interface_heritage_collect(conv: Converter, node: ts.Interfac
 function statement_interface_field_getters(conv: Converter, node: ts.InterfaceDeclaration, ifaceName: string) {
   const selfTypeId = conv.ast.data.types.length
   conv.ast.data.types.push({ primitive: { name: addName(conv, ifaceName) } })
+  if (node.typeParameters && node.typeParameters.length > 0) {
+    let firstInstExpr: number | undefined
+    let prevInstExpr: number | undefined
+    for (const tp of node.typeParameters) {
+      const paramTypeId = conv.ast.data.types.length
+      conv.ast.data.types.push({ primitive: { name: addName(conv, tp.name.text) } })
+      const exprId = conv.ast.data.expressions.length
+      conv.ast.data.expressions.push({ type: { id: paramTypeId } })
+      if (prevInstExpr !== undefined) conv.ast.data.expressions[prevInstExpr].type.next = exprId
+      if (firstInstExpr === undefined) firstInstExpr = exprId
+      prevInstExpr = exprId
+    }
+    conv.ast.data.types[selfTypeId].primitive.instantiation = firstInstExpr
+  }
   for (const member of node.members) {
     if (!ts.isPropertySignature(member) || !member.name) continue
     const fieldName = sanitize(conv, unquote(member.name.getText()))
     const fieldTypeId = mapType(conv, member.type)
-    const funcName = addName(conv, prefixed(conv, fieldName))
+    const baseProcName = prefixed(conv, fieldName)
+    let procName = conv.nimNames.has(nimNormalize(baseProcName))
+      ? uniqueNimName(conv, ifaceName + "_" + fieldName)
+      : baseProcName
+    conv.nimNames.add(nimNormalize(procName))
+    const funcName = addName(conv, procName)
     const selfTypeExpr = conv.ast.data.expressions.length
     conv.ast.data.expressions.push({ type: { id: selfTypeId } })
     const selfBinding = conv.ast.data.bindings.length
     conv.ast.data.bindings.push({ name: addName(conv, "self"), dataType: selfTypeExpr, private: true })
     const fieldRetExpr = conv.ast.data.expressions.length
     conv.ast.data.expressions.push({ type: { id: fieldTypeId } })
+    let firstGeneric: number | undefined
+    if (node.typeParameters && node.typeParameters.length > 0) {
+      let prevGeneric: number | undefined
+      for (const tp of node.typeParameters) {
+        const genericId = conv.ast.data.bindings.length
+        conv.ast.data.bindings.push({ name: addName(conv, tp.name.text), private: true })
+        if (prevGeneric !== undefined) conv.ast.data.bindings[prevGeneric].next = genericId
+        if (firstGeneric === undefined) firstGeneric = genericId
+        prevGeneric = genericId
+      }
+    }
     const pragmaId = addImportjsPragma(conv, "#." + unquote(member.name.getText()))
     const procId = conv.ast.data.procedures.length
     conv.ast.data.procedures.push({
       name: funcName,
       arguments: selfBinding,
       returnType: fieldRetExpr,
+      generics: firstGeneric,
       pragmas: pragmaId,
       impure: true,
     })
@@ -333,7 +390,17 @@ function statement_interface_methods(conv: Converter, node: ts.InterfaceDeclarat
   for (const member of node.members) {
     if (!ts.isMethodSignature(member) || !member.name) continue
     const methodName = member.name.getText()
-    emitOrDedup(conv, prefixed(conv, methodName), member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, node.typeParameters, ifaceName + "." + methodName)
+    const baseProcName = prefixed(conv, methodName)
+    let procName = conv.nimNames.has(nimNormalize(baseProcName))
+      ? uniqueNimName(conv, ifaceName + "_" + sanitize(conv, methodName))
+      : baseProcName
+    const classParamNames = new Set((node.typeParameters ?? []).map(tp => tp.name.text))
+    const methodOnlyParams = ((ts.isMethodSignature(member) && member.typeParameters) ? [...member.typeParameters] : []).filter(tp => !classParamNames.has(tp.name.text))
+    const mergedTypeParams: ts.TypeParameterDeclaration[] = [
+      ...(node.typeParameters ?? []),
+      ...methodOnlyParams,
+    ]
+    emitOrDedup(conv, procName, member.parameters, member.type, "#." + methodName + "(@)", selfTypeId, mergedTypeParams.length > 0 ? mergedTypeParams : undefined, ifaceName + "." + methodName)
   }
 }
 
@@ -429,8 +496,28 @@ function statement_type_alias_union_mixed(conv: Converter, typeName: ReturnType<
 function statement_type_alias_direct(conv: Converter, node: ts.TypeAliasDeclaration, typeName: ReturnType<typeof addName>) {
   const targetId = mapType(conv, node.type)
   const targetType = conv.ast.data.types[targetId]
+
+  if (node.typeParameters && node.typeParameters.length > 0 && targetType.procedure) {
+    const proc = conv.ast.data.procedures[targetType.procedure.id]
+    let prevGeneric: number | undefined
+    for (const tp of node.typeParameters) {
+      const genericName = addName(conv, tp.name.text)
+      const genericId = conv.ast.data.bindings.length
+      conv.ast.data.bindings.push({ name: genericName, private: true })
+      if (prevGeneric !== undefined) conv.ast.data.bindings[prevGeneric].next = genericId
+      if (proc.generics === undefined) proc.generics = genericId
+      prevGeneric = genericId
+    }
+  }
+
   if (targetType.object && !targetType.object.keyword) {
     targetType.object.name = typeName
+    const stmtId = conv.ast.data.statements.length
+    conv.ast.data.statements.push({ type: { id: targetId } })
+    link_statement(conv, stmtId)
+  } else if (targetType.procedure) {
+    const proc = conv.ast.data.procedures[targetType.procedure.id]
+    proc.name = typeName
     const stmtId = conv.ast.data.statements.length
     conv.ast.data.statements.push({ type: { id: targetId } })
     link_statement(conv, stmtId)
@@ -465,7 +552,9 @@ function statement_type_alias(conv: Converter, node: ts.TypeAliasDeclaration, ty
 
 export function statement_type(conv: Converter, node: ts.Node) {
   if (!ts.isInterfaceDeclaration(node) && !ts.isTypeAliasDeclaration(node)) return
-  const typeName = addName(conv, prefixed(conv, node.name.text))
+  const prefixedName = prefixed(conv, node.name.text)
+  const typeName = addName(conv, prefixedName)
+  conv.nimNames.add(nimNormalize(prefixedName))
   if (ts.isInterfaceDeclaration(node)) statement_interface(conv, node, typeName)
   if (ts.isTypeAliasDeclaration(node)) statement_type_alias(conv, node, typeName)
 }

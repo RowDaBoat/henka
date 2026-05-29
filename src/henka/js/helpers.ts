@@ -8,6 +8,23 @@ export function unquote(name: string): string {
 }
 
 
+export function nimNormalize(name: string): string {
+  if (name.length === 0) return ""
+  return name[0].toLowerCase() + name.slice(1).replace(/_/g, "").toLowerCase()
+}
+
+
+export function uniqueNimName(conv: Converter, name: string): string {
+  let candidate = name
+  let counter = 2
+  while (conv.nimNames.has(nimNormalize(candidate))) {
+    candidate = name + String(counter)
+    counter++
+  }
+  return candidate
+}
+
+
 export function addSrc(conv: Converter, text: string) {
   const start = conv.source.length
   conv.source += text
@@ -22,9 +39,15 @@ export function sanitize(conv: Converter, name: string): string {
     return "unnamed" + count
   }
   let result = name
+  result = result.replace(/[^a-zA-Z0-9_]/g, "")
+  if (result.length === 0) {
+    const count = conv.uniqueNames.get("unnamed") ?? 0
+    conv.uniqueNames.set("unnamed", count + 1)
+    return "unnamed" + count
+  }
+  if (/^[0-9]/.test(result)) result = "field" + result
   if (result.startsWith("__")) result = "internal" + result.slice(1)
   else if (result.startsWith("_")) result = "priv" + result
-  if (/[^a-zA-Z0-9_]/.test(result)) result = "`" + result + "`"
   result = result.replace(/_{2,}/g, "_")
   if (result.endsWith("_")) {
     const count = conv.uniqueNames.get(result) ?? 0
