@@ -49,6 +49,24 @@ proc cursorFileName*(cursor: CXCursor): system.string =
   clang_disposeString(fileStr)
 
 
+proc sourceLocation*(cursor: CXCursor): system.string =
+  let loc = clang_getCursorLocation(cursor)
+  var file: pointer = nil
+  var line, column, offset: cuint
+
+  clang_getFileLocation(loc, addr file, addr line, addr column, addr offset)
+
+  if file.isNil:
+    return ""
+
+  let fileStr = clang_getFileName(file)
+  let raw = clang_getCString(fileStr)
+  let path = if raw.isNil: "" else: $raw
+  clang_disposeString(fileStr)
+
+  result = path.lastPathPart & ":" & $line
+
+
 proc isFromFile*(cursor: CXCursor; headerFile: string): bool =
   let fileName = cursor.cursorFileName
   if fileName.len == 0:

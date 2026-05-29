@@ -52,7 +52,7 @@ proc operatorName*(name: system.string): system.string =
       return entry[1]
   result = name
 
-proc udlName*(name: system.string): system.string =
+proc userDefinedLiteralName*(name: system.string): system.string =
   result = name["operator".len .. ^1].replace("\"", "")
   while result.len > 0 and result[0] == '_':
     result = result[1 .. ^1]

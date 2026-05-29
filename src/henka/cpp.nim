@@ -6,10 +6,12 @@ import nonim/ast as astTF
 import ./[clang, common, comments, pragmas, types, statements, enums]
 
 
+const AllocationOperators = ["operator new", "operator new[]", "operator delete", "operator delete[]"]
+
+
 proc toMethod     *(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
-
 
 
 proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
@@ -141,6 +143,10 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
 
 
 proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  if name in AllocationOperators:
+    let note = conv.addSrc("# Skipped " & name & "  (" & cursor.sourceLocation & ")")
+    conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: note)))
+    return CXChildVisit_Continue.cint
   let isStatic   = clang_CXXMethod_isStatic(cursor) != 0
   let isOperator = name.startsWith("operator")
   let funcType   = clang_getCursorType(cursor)

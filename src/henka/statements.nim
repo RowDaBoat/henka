@@ -274,7 +274,7 @@ proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
 
   if conv.isCpp:
     nimName =
-      if name.startsWith("operator\"\""): udlName(name)
+      if name.startsWith("operator\"\""): userDefinedLiteralName(name)
       elif name.startsWith("operator"):   operatorName(name)
       else:                               name
 

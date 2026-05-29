@@ -45,4 +45,17 @@ struct Point {
 void* operator new[](unsigned long size);
 void  operator delete[](void* ptr) noexcept;
 
-double operator"" _r(long double value);
+double operator""_r(long double value);
+
+// Per-class allocation operators can't be bound usefully at the moment, and the
+// per-class copies collide on the same Nim signature, so henka skips them
+// (leaving a comment) instead of emitting a redefinition.
+struct AllocA {
+    void* operator new   (unsigned long size);
+    void  operator delete(void* ptr) noexcept;
+};
+
+struct AllocB {
+    void* operator new   (unsigned long size);
+    void  operator delete(void* ptr) noexcept;
+};
