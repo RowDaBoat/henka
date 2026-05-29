@@ -1,7 +1,7 @@
 # @deps std
 from std/strutils import startsWith, replace, contains, split, strip, find, rfind
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./[common, clang, pragmas]
 
@@ -118,6 +118,10 @@ proc toPointer*(conv: var Converter, typ: CXType): astTF.Id =
   result = conv.ast.add_type(Type(kind: astTF.tPtr, `ptr`: TypePtr(target: targetId)))
 
 
+proc taggedOrBare(isCpp: bool, taggedKind: LabelKind): LabelKind =
+  if isCpp: Typedef else: taggedKind
+
+
 proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   var named = typ.typeSpelling
   if named.startsWith("const "):
@@ -128,9 +132,11 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
     return conv.add_primitive(mapped.get)
 
   if named.startsWith("struct "):
-    named = conv.sanitizer(conv.renamer(StructType, named[7..^1]))
+    let kind = taggedOrBare(conv.isCpp, StructType)
+    named = conv.sanitizer(conv.renamer(kind, named[7..^1]))
   elif named.startsWith("union "):
-    named = conv.sanitizer(conv.renamer(UnionType, named[6..^1]))
+    let kind = taggedOrBare(conv.isCpp, UnionType)
+    named = conv.sanitizer(conv.renamer(kind, named[6..^1]))
   elif named.startsWith("enum "):
     named = conv.sanitizer(conv.renamer(Typedef, named[5..^1]))
   elif '<' in named:

@@ -1,7 +1,7 @@
 # @deps std
 from std/strutils import startsWith
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./base
 export base

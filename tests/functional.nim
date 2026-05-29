@@ -37,6 +37,7 @@ const baseDir = currentSourcePath().parentDir()
 
 const check = "check"
 const run = "r"
+const compileCpp = "cpp"
 
 
 type Feature = object
@@ -102,6 +103,7 @@ const cFeatures = [
   feature(check, "respect_ordering"),
   feature(check, "externc"),
   feature(check, "not_regress_on_bugs"),
+  feature(check, "typedef_struct_pointer"),
 ]
 
 
@@ -127,16 +129,18 @@ suite "Henka C should support":
 const cpp = "cpp"
 const cppHeader = "header.hpp"
 const cppFeatures = [
-  (check, "empty_files"),
-  (check, "big"),
-  (check, "ordering_templates"),
-  (check, "ordering_forward_templates"),
-  (check, "template_generics"),
-  (check, "references"),
-  (check, "enums_scoped"),
-  (check, "externc"),
-  (check, "defines"),
-  (run,   "enums_unscoped"),
+  (check,      "empty_files"),
+  (check,      "big"),
+  (check,      "ordering_templates"),
+  (check,      "ordering_forward_templates"),
+  (check,      "template_generics"),
+  (check,      "references"),
+  (check,      "enums_scoped"),
+  (check,      "externc"),
+  (check,      "defines"),
+  (run,        "enums_unscoped"),
+  (compileCpp, "function_pointer_const"),
+  (check,      "typedef_struct_pointer"),
 ]
 
 

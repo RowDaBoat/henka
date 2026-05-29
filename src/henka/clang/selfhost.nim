@@ -1,7 +1,7 @@
 # @description
 #  henka bindings generator for libclang, using libclang+henka
 #  Usage:
-#    nim r --path:<slate> --path:<astTF> path/to/thisfile.nim
+#    nim r --path:<nonim> --path:<astTF> path/to/thisfile.nim
 #_____________________________________________________________________
 # @deps std
 from std/os import walkDir, pcFile, splitFile, `/`, createDir, parentDir

@@ -1,10 +1,10 @@
 # @deps std
 from std/os import paramStr, paramCount, splitFile, changeFileExt, parentDir
 from std/strutils import join, startsWith
-from std/json import parseJson, to
-# @deps slate
-import slate/ast as astTF
-import slate
+# @deps nonim
+import nonim/ast as astTF
+import nonim/codegen/output
+import nonim
 # @deps henka
 import ./[clang, common, pragmas, statements, cpp, callbacks, enums]
 
@@ -220,7 +220,7 @@ proc generate*(
       elif conv.firstOtherStmt.isSome:  conv.firstOtherStmt
       else: none(astTF.Id)
 
-  result = slate.codegen.nim(conv.ast)
+  result = nonim.codegen.nim(conv.ast)
 
 
 #_______________________________________

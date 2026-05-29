@@ -1,23 +1,24 @@
 # Henka
-Henka generates Nim FFI bindings from C/C++ headers using libclang's AST.
-- Supports static and dynamic library bindings.
+`henka` generates Nim FFI bindings.
+- Bindings for C/C++ headers are generated using `libclang`'s AST.
+- Bindings for Javascript/Typescript code are generated using the typescript compiler's API (heysokam/js branch).
+- Supports static and dynamic C/C++ library bindings.
 - Can be used from the command line or as a library from your own bindings generator for more refined control of the output.
 - Supports a wide variety of options and callbacks to customize the output to your needs, it allows renaming, filtering and overriding symbols, overriding values and pragmas, and naming anonymous fields among others.
 
 
 ## Installation
-
 ```
 nimble install https://github.com/RowDaBoat/henka
 ```
-
-Requires libclang available on your system.
+Requires `libclang` available on your system.
 
 
 ## CLI Usage
 ```
 henka [options] header.h [... more_headers.h]
 ```
+
 
 ### Options
 | Flag | Description |
@@ -35,32 +36,30 @@ henka [options] header.h [... more_headers.h]
 
 ### Examples
 Generate bindings for a C header:
-
 ```sh
 henka mylib.h
 ```
 
 Generate bindings for C++ headers with include paths:
-
 ```sh
 henka --cpp --std=c++17 -I=/usr/local/include api.hpp types.hpp
 ```
 
 Output to a different directory:
-
 ```sh
 henka --inpath=vendor/headers --outpath=src/bindings mylib.h
 ```
 
+
 ## Library Usage
 Import `henka` and call `generate` to produce bindings programmatically:
-
 ```nim
 import henka
 
 let source = generate("mylib.h")
 writeFile("mylib.nim", source)
 ```
+
 
 ### Multi-file generation
 ```nim
@@ -131,8 +130,8 @@ Available callbacks:
 | `constructorName` | `(string): string` | Pattern for C++ constructor bindings |
 | `destructorName` | `(string): string` | Pattern for C++ destructor bindings |
 
-### Enum modes
 
+### Enum modes
 Control how C/C++ enums are represented in Nim:
 
 ```nim

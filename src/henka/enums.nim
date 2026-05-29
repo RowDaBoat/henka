@@ -1,8 +1,8 @@
 # @deps std
 from std/strutils import contains, startsWith, parseBiggestInt
 from std/intsets import IntSet, initIntSet, containsOrIncl
-# @deps slate
-import slate/ast as astTF
+# @deps nonim
+import nonim/ast as astTF
 # @deps henka
 import ./[common, clang, pragmas, comments]
 
