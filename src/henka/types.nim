@@ -8,6 +8,23 @@ import ./[common, clang, pragmas]
 
 proc convert_type*(conv: var Converter, typ: CXType): astTF.Id
 
+const clang_RecordKinds = {CXCursor_StructDecl, CXCursor_ClassDecl, CXCursor_UnionDecl, CXCursor_ClassTemplate}
+
+
+proc stripNamespace*(name: string): string =
+  let bracket = name.find({'<', '['})
+  let scanEnd = if bracket >= 0: bracket - 1 else: name.high
+  let marker  = name.rfind("::", last = scanEnd)
+  result = if marker >= 0: name[marker + 2 .. ^1] else: name
+
+
+proc isMemberTypedef(typ: CXType): bool =
+  let decl = clang_getTypeDeclaration(typ)
+  if clang_getCursorKind(decl) notin {CXCursor_TypedefDecl, CXCursor_TypeAliasDecl}:
+    return false
+  result = clang_getCursorKind(clang_getCursorSemanticParent(decl)) in clang_RecordKinds
+
+
 const clang_Primitives = {
   CXType_Bool, CXType_Void,
   CXType_SChar, CXType_Char16, CXType_Char32, CXType_Short, CXType_Int, CXType_Long, CXType_LongLong,
@@ -31,7 +48,8 @@ proc splitTemplateArgs(argsStr: string): seq[string] =
   if current.strip.len > 0:
     result.add current.strip
 
-proc add_primitive*(conv: var Converter, name: string): astTF.Id =
+proc add_primitive*(conv: var Converter, rawName: string): astTF.Id =
+  let name = stripNamespace(rawName)
   let angleBracket = name.find('<')
   if angleBracket < 0:
     return conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name))))
@@ -44,7 +62,7 @@ proc add_primitive*(conv: var Converter, name: string): astTF.Id =
   var firstExpr = none(astTF.Id)
   var prevExpr = none(astTF.Id)
   for arg in args:
-    let nimArg = arg.replace("<", "[").replace(">", "]")
+    let nimArg = stripNamespace(arg).replace("<", "[").replace(">", "]")
     let exprId = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(
       name: conv.addName(nimArg))))
     if prevExpr.isSome:
@@ -142,7 +160,7 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   elif '<' in named:
     let numArgs = clang_Type_getNumTemplateArguments(typ)
     if numArgs > 0:
-      let baseName = named[0 ..< named.find('<')]
+      let baseName = stripNamespace(named[0 ..< named.find('<')])
       var firstExpr = none(astTF.Id)
       var prevExpr = none(astTF.Id)
       for argIdx in 0 ..< numArgs:
@@ -231,6 +249,9 @@ proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
 
 
 proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
+  if isMemberTypedef(typ):
+    return conv.convert_type(clang_getCanonicalType(typ))
+
   result = case typ.kind
     of clang_Primitives       : conv.toPrimitive(typ)
     of CXType_Typedef         : conv.toPrimitive2(typ)

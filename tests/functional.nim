@@ -141,6 +141,7 @@ const cppFeatures = [
   (compileCpp, "function_pointer_const"),
   (check,      "typedef_struct_pointer"),
   (check,      "operators"),
+  (check,      "nested_qualified_types"),
 ]
 
 

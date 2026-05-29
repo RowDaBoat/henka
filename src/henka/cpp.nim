@@ -31,7 +31,7 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
     if entry[0] == name:
       result = (entry[1], entry[2])
       return
-  let target = name["operator".len .. ^1].strip
+  let target = stripNamespace(name["operator".len .. ^1].strip)
   if target.len > 0 and target[0] in {'A'..'Z', 'a'..'z', '_'} and
      '*' notin target and '&' notin target and ' ' notin target:
     return ("to" & target, "#." & name & "(@)")
