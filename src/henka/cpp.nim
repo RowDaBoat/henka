@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith
+from std/strutils import startsWith, contains, strip
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
@@ -29,6 +29,10 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
     if entry[0] == name:
       result = (entry[1], entry[2])
       return
+  let target = name["operator".len .. ^1].strip
+  if target.len > 0 and target[0] in {'A'..'Z', 'a'..'z', '_'} and
+     '*' notin target and '&' notin target and ' ' notin target:
+    return ("to" & target, "#." & name & "(@)")
   result = (name, "#." & name & "(@)")
 
 
@@ -123,13 +127,14 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
     let conv = cast[ptr Converter](data)
     let childKind = clang_getCursorKind(child)
     case childKind
-    of CXCursor_Constructor : discard conv[].toConstructor(child, child.spelling)
-    of CXCursor_Destructor  : discard conv[].toDestructor(child, child.spelling)
-    of CXCursor_CXXMethod   : discard conv[].toMethod(child, child.spelling)
-    of CXCursor_StructDecl  : discard conv[].toClass(child, child.spelling, defaultPublic = true)
-    of CXCursor_ClassDecl   : discard conv[].toClass(child, child.spelling)
-    of CXCursor_EnumDecl    : discard conv[].toEnum(child, child.spelling)
-    else                    : discard
+    of CXCursor_Constructor        : discard conv[].toConstructor(child, child.spelling)
+    of CXCursor_Destructor         : discard conv[].toDestructor(child, child.spelling)
+    of CXCursor_CXXMethod          : discard conv[].toMethod(child, child.spelling)
+    of CXCursor_ConversionFunction : discard conv[].toMethod(child, child.spelling)
+    of CXCursor_StructDecl         : discard conv[].toClass(child, child.spelling, defaultPublic = true)
+    of CXCursor_ClassDecl          : discard conv[].toClass(child, child.spelling)
+    of CXCursor_EnumDecl           : discard conv[].toEnum(child, child.spelling)
+    else                           : discard
     return CXChildVisit_Continue.cint
   , addr conv)
   return CXChildVisit_Continue.cint
@@ -314,6 +319,15 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
 proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  # C++ parameter packs (`Values... inValues`) have no Nim equivalent — skip.
+  var hasPack = false
+  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
+    if clang_getCursorKind(child) == CXCursor_ParmDecl:
+      if clang_getCursorType(child).typeSpelling.contains("..."):
+        cast[ptr bool](data)[] = true
+    return CXChildVisit_Continue.cint
+  , addr hasPack)
+  if hasPack: return CXChildVisit_Continue.cint
   let funcName = conv.addRenamed(Proc, name)
   let qualified = cursor.qualifiedName
   let funcType = clang_getCursorType(cursor)

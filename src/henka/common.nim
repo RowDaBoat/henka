@@ -1,5 +1,5 @@
 # @deps std
-from std/strutils import startsWith
+from std/strutils import startsWith, replace
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
@@ -20,7 +20,7 @@ const OperatorPatterns* :seq[(system.string, system.string, system.string)]= @[
   ("operator>",  "`>`",  "# > #"),
   ("operator>=", "`>=`", "# >= #"),
   ("operator[]", "`[]`", "#[#]"),
-  ("operator()", "`()`", "#(@)"),
+  ("operator()", "call", "#(@)"),
   ("operator<<", "`shl`","# << #"),
   ("operator>>", "`shr`","# >> #"),
   ("operator&",  "`and`","# & #"),
@@ -34,8 +34,16 @@ const OperatorPatterns* :seq[(system.string, system.string, system.string)]= @[
   ("operator-=", "`-=`", "# -= #"),
   ("operator*=", "`*=`", "# *= #"),
   ("operator/=", "`/=`", "# /= #"),
-  ("operator new",    "new",    ""),
-  ("operator delete", "delete", ""),
+  ("operator%=", "`%=`", "# %%= #"),
+  ("operator<<=","`<<=`","# <<= #"),
+  ("operator>>=","`>>=`","# >>= #"),
+  ("operator&=", "`&=`", "# &= #"),
+  ("operator|=", "`|=`", "# |= #"),
+  ("operator^=", "`^=`", "# ^= #"),
+  ("operator new",       "new",         ""),
+  ("operator delete",    "delete",      ""),
+  ("operator new[]",     "newArray",    ""),
+  ("operator delete[]",  "deleteArray", ""),
 ]
 
 proc operatorName*(name: system.string): system.string =
@@ -43,6 +51,11 @@ proc operatorName*(name: system.string): system.string =
     if entry[0] == name:
       return entry[1]
   result = name
+
+proc udlName*(name: system.string): system.string =
+  result = name["operator".len .. ^1].replace("\"", "")
+  while result.len > 0 and result[0] == '_':
+    result = result[1 .. ^1]
 
 
 proc addSrc*(conv: var Converter, text: string): astTF.Location =

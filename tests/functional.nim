@@ -140,6 +140,7 @@ const cppFeatures = [
   (run,        "enums_unscoped"),
   (compileCpp, "function_pointer_const"),
   (check,      "typedef_struct_pointer"),
+  (check,      "operators"),
 ]
 
 
