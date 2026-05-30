@@ -24,9 +24,13 @@ proc signatureUsesSimdRegister(conv :Converter; cursor :CXCursor) :bool=
   result = false
 
 
+proc emitSkipNote(conv :var Converter; text :string)=
+  let commentId = conv.add_comment(text, isDoc = false)
+  conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentId)))
+
+
 proc skipSimdRegister(conv :var Converter; cursor :CXCursor; name :string) :cint=
-  let note = conv.addSrc("# Skipped " & name & " (SIMD register type)  (" & cursor.sourceLocation & ")")
-  conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: note)))
+  conv.emitSkipNote("Skipped " & name & " (SIMD register type)  (" & cursor.sourceLocation & ")")
   result = CXChildVisit_Continue.cint
 
 
@@ -160,8 +164,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
 
 proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
   if name in AllocationOperators:
-    let note = conv.addSrc("# Skipped " & name & "  (" & cursor.sourceLocation & ")")
-    conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: note)))
+    conv.emitSkipNote("Skipped " & name & "  (" & cursor.sourceLocation & ")")
     return CXChildVisit_Continue.cint
   if conv.signatureUsesSimdRegister(cursor):
     return conv.skipSimdRegister(cursor, name)
