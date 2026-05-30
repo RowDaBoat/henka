@@ -60,12 +60,26 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
 
 proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic :bool = false) :cint=
   if name.len == 0 or ' ' in name: return CXChildVisit_Continue.cint
+  # Already emitted as a full definition (methods/fields/bases): re-processing a
+  # later redeclaration would emit its methods a second time. A field-less but
+  # method-bearing class has no fields, so the fields check below can't catch
+  # this; track full emissions explicitly.
+  if name in conv.seenFullStructs:
+    return CXChildVisit_Continue.cint
+  let savedModule = conv.module
   if name in conv.seenStructs:
     # Check if existing is a forward declaration — if so, continue to replace it
-    let (existingTypeId, _) = conv.seenStructs[name]
+    let (existingTypeId, originalModule) = conv.seenStructs[name]
     let existingType = conv.ast.data.types.get[existingTypeId]
     if existingType.kind == astTF.tObject and existingType.`object`.fields.isSome:
       return CXChildVisit_Continue.cint
+    # The existing node is rendered under the module that first declared it, so
+    # build its replacement under that module too: every addSrc below stores
+    # text in `conv.module`'s source, and the resulting Locations are resolved
+    # against that same module at codegen time. Building under a different
+    # module would point this node's Locations at the wrong source string and
+    # render as garbage. Restored before methods are emitted (see below).
+    conv.module = originalModule
   let commentOpt = conv.add_comment(cursor)
   let className = conv.addName(name)
   # Collect public fields
@@ -144,6 +158,8 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
     typeId = conv.ast.add_type(replacementType)
     conv.add_statement_chained(Statement(kind: astTF.sType, `type`: StatementType(id: typeId, comment: commentOpt)))
   conv.seenStructs[name] = (typeId, conv.module)
+  if not isForward: conv.seenFullStructs.incl name
+  conv.module = savedModule
   # Now emit methods, constructors, destructors
   discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
     let conv = cast[ptr Converter](data)
