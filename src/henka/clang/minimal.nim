@@ -82,6 +82,7 @@ type CXSourceLocation *{.bycopy.} = object
   int_data*: cuint
 
 proc clang_getCursorLocation*(cursor: CXCursor): CXSourceLocation {.importc, dynlib: libclang, cdecl.}
+proc clang_Location_isInSystemHeader*(location: CXSourceLocation): cint {.importc, dynlib: libclang, cdecl.}
 proc clang_getFileLocation*(location: CXSourceLocation, file: ptr pointer, line: ptr cuint, column: ptr cuint, offset: ptr cuint) {.importc, dynlib: libclang, cdecl.}
 proc clang_getFileName*(file: pointer): CXString {.importc, dynlib: libclang, cdecl.}
 
@@ -166,6 +167,7 @@ const CXType_Typedef*                 : cint = 107
 const CXType_FunctionProto*           : cint = 111
 const CXType_FunctionNoProto*         : cint = 110
 const CXType_ConstantArray*           : cint = 112
+const CXType_Vector*                  : cint = 113
 const CXType_MemberPointer*           : cint = 117
 const CXType_IncompleteArray*         : cint = 114
 const CXType_Auto*                    : cint = 118

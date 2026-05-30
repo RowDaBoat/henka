@@ -14,6 +14,22 @@ proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
+proc signatureUsesSimdRegister(conv :Converter; cursor :CXCursor) :bool=
+  let funcType = clang_getCursorType(cursor)
+  if conv.usesSimdRegister(clang_getResultType(funcType)): return true
+  let argc = clang_Cursor_getNumArguments(cursor)
+  for idx in 0..<argc:
+    let arg = clang_Cursor_getArgument(cursor, idx.cuint)
+    if conv.usesSimdRegister(clang_getCursorType(arg)): return true
+  result = false
+
+
+proc skipSimdRegister(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  let note = conv.addSrc("# Skipped " & name & " (SIMD register type)  (" & cursor.sourceLocation & ")")
+  conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: note)))
+  result = CXChildVisit_Continue.cint
+
+
 proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
   if name == "operator=":
     var isMove = false
@@ -147,6 +163,8 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     let note = conv.addSrc("# Skipped " & name & "  (" & cursor.sourceLocation & ")")
     conv.add_statement_chained(Statement(kind: astTF.sPassthrough, passthrough: StatementPassthrough(location: note)))
     return CXChildVisit_Continue.cint
+  if conv.signatureUsesSimdRegister(cursor):
+    return conv.skipSimdRegister(cursor, name)
   let isStatic   = clang_CXXMethod_isStatic(cursor) != 0
   let isOperator = name.startsWith("operator")
   let funcType   = clang_getCursorType(cursor)
@@ -162,6 +180,13 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     let parentTypeExpr = conv.ast.add_expression_type(parentTypeId)
     let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeExpr), private: some(true)))
     argIds.add thisBinding
+  else:
+    let parentCursor = clang_getCursorSemanticParent(cursor)
+    let parentExpr   = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(parentCursor.spelling))))
+    let typedescId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("typedesc"), instantiation: some(parentExpr))))
+    let typedescExpr = conv.ast.add_expression_type(typedescId)
+    let selfBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("_")), dataType: some(typedescExpr), private: some(true)))
+    argIds.add selfBinding
   for idx in 0..<argc:
     let arg       = clang_Cursor_getArgument(cursor, idx.cuint)
     let argName   = if arg.spelling.len > 0: arg.spelling else: "a" & $idx
@@ -204,6 +229,8 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
 
 
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  if conv.signatureUsesSimdRegister(cursor):
+    return conv.skipSimdRegister(cursor, name)
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
   let retTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName))))

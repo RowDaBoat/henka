@@ -143,6 +143,8 @@ const cppFeatures = [
   (check,      "typedef_struct_pointer"),
   (check,      "operators"),
   (check,      "nested_qualified_types"),
+  (check,      "static_methods"),
+  (check,      "simd_vectors"),
   (runCpp,     "parameter_packs"),
 ]
 

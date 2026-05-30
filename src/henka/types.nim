@@ -1,5 +1,6 @@
 # @deps std
 from std/strutils import startsWith, replace, contains, split, strip, find, rfind
+from std/os import isRelativeTo
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
@@ -227,6 +228,74 @@ proc toArray*(conv: var Converter, typ: CXType): astTF.Id =
   let countLoc  = conv.addSrc($count)
   let countExpr = conv.ast.add_expression(Expression(kind: astTF.eLiteral, literal: ExpressionLiteral(kind: LiteralKind.integer, value: countLoc)))
   result = conv.ast.add_type(Type(kind: astTF.tArray, array: TypeArray(element: elemId, length: some(countExpr))))
+
+
+proc typeContainsVector*(typ: CXType, depth: int = 0): bool
+
+
+type VectorScanCtx = object
+  found: bool
+  depth: int
+
+
+proc recordContainsVector(record: CXType, depth: int): bool =
+  let decl = clang_getTypeDeclaration(record)
+  var ctx = VectorScanCtx(depth: depth)
+  discard clang_visitChildren(decl, proc(child: CXCursor; parent: CXCursor; data: pointer): cint {.cdecl.} =
+    let ctx = cast[ptr VectorScanCtx](data)
+    if clang_getCursorKind(child) == CXCursor_FieldDecl and typeContainsVector(clang_getCursorType(child), ctx.depth + 1):
+      ctx.found = true
+    return CXChildVisit_Continue.cint
+  , addr ctx)
+  result = ctx.found
+
+
+proc typeContainsVector*(typ: CXType, depth: int = 0): bool =
+  if depth > 8: return false
+  let canonical = clang_getCanonicalType(typ)
+  result = case canonical.kind
+    of CXType_Vector                                                  : true
+    of CXType_ConstantArray, CXType_IncompleteArray                   : typeContainsVector(clang_getArrayElementType(canonical), depth + 1)
+    of CXType_Pointer, CXType_LValueReference, CXType_RValueReference : typeContainsVector(clang_getPointeeType(canonical), depth + 1)
+    of CXType_Record                                                  : recordContainsVector(canonical, depth)
+    else                                                              : false
+
+
+proc registerDecl(typ: CXType): CXCursor =
+  var canonical = clang_getCanonicalType(typ)
+  var guard = 0
+  while guard < 8:
+    inc guard
+    case canonical.kind
+    of CXType_LValueReference, CXType_RValueReference, CXType_Pointer:
+      canonical = clang_getCanonicalType(clang_getPointeeType(canonical))
+    of CXType_ConstantArray, CXType_IncompleteArray:
+      canonical = clang_getCanonicalType(clang_getArrayElementType(canonical))
+    else:
+      break
+  result = clang_getTypeDeclaration(canonical)
+
+
+proc declaredExternally(conv: Converter, typ: CXType): bool =
+  let decl = registerDecl(typ)
+  if clang_Location_isInSystemHeader(clang_getCursorLocation(decl)) != 0:
+    return true
+  if conv.rootDir.len == 0: return false
+  let file = decl.cursorFileName
+  if file.len == 0: return false
+  result = not file.isRelativeTo(conv.rootDir)
+
+
+proc usesSimdRegister*(conv: Converter, typ: CXType): bool =
+  var value = typ
+  if value.kind in {CXType_LValueReference, CXType_RValueReference}:
+    value = clang_getPointeeType(value)
+  if clang_getCanonicalType(value).kind == CXType_Vector:
+    return true
+  if not typeContainsVector(value):
+    return false
+
+  result = conv.declaredExternally(value)
 
 
 proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
