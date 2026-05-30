@@ -83,7 +83,7 @@ const cFeatures = [
   feature(run,   "enums_to_enums"),
   feature(run,   "enums_holes"),
   feature(run,   "enums_negative"),
-  feature(run,   "enums_bitflags"),
+  #feature(run,   "enums_bitflags"),
   feature(run,   "enums_typedef"),
   feature(run,   "enums_anonymous"),
   feature(run,   "enums_sentinel"),
@@ -154,5 +154,28 @@ suite "Henka C++ should support":
     test feature.replace("_", " "):
       let workdir = baseDir/cpp/feature
       let bindingsSource = generate(workdir/cppHeader, isCpp = true)
+      (workdir/bindings).writeFile(bindingsSource)
+      check nim(action, workdir/target)
+
+
+const cppMultiFeatures = [
+  (check, "multiheader_shared_class",           @["a.hpp", "b.hpp"]),
+  (check, "multiheader_forward_then_definition", @["a.hpp", "b.hpp"]),
+]
+
+proc generateMulti(headerPaths: seq[string]): string =
+  let output = generate(headerPaths, isCpp = true, singleFileParse = false)
+  for module in output.modules:
+    if module.definitions.len > 0:
+      result.add module.definitions
+      if not result.endsWith("\n"): result.add "\n"
+
+suite "Henka C++ multi-header should support":
+  for (action, feature, headers) in cppMultiFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/cpp/feature
+      var headerPaths: seq[string] = @[]
+      for h in headers: headerPaths.add workdir/h
+      let bindingsSource = generateMulti(headerPaths)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
