@@ -305,14 +305,28 @@ proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
   if isConst:
     result = targetId
   elif typ.kind == CXType_LValueReference:
+    # `T&` → `var T`. The target may be any type kind (a primitive, but also a
+    # pointer for `T*&`, an object, etc.); set `mutable` on whichever variant it
+    # actually is rather than assuming a primitive.
     var target = conv.ast.data.types.get[targetId]
-    target.primitive.mutable = some(true)
+    case target.kind
+    of astTF.tPrimitive : target.primitive.mutable = some(true)
+    of astTF.tPtr       : target.`ptr`.mutable      = some(true)
+    of astTF.tArray     : target.array.mutable      = some(true)
+    of astTF.tObject    : target.`object`.mutable   = some(true)
+    else                : discard
     conv.ast.data.types.get[targetId] = target
     result = targetId
   elif typ.kind == CXType_RValueReference:
-    result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
-      name: conv.ast.data.types.get[targetId].primitive.name,
-      keyword: some(conv.addName("sink")))))
+    # `T&&` → `sink T`. Only primitive targets carry a `keyword`; for other kinds
+    # there's no `sink` slot, so fall back to the bare target type.
+    let target = conv.ast.data.types.get[targetId]
+    if target.kind == astTF.tPrimitive:
+      result = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(
+        name: target.primitive.name,
+        keyword: some(conv.addName("sink")))))
+    else:
+      result = targetId
   else:
     result = targetId
 
