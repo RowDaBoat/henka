@@ -135,6 +135,7 @@ const cppFeatures = [
   (check,      "ordering_forward_templates"),
   (check,      "template_generics"),
   (check,      "references"),
+  (runCpp,     "reference_to_pointer"),
   (check,      "enums_scoped"),
   (check,      "externc"),
   (check,      "defines"),
