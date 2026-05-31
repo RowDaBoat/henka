@@ -26,8 +26,8 @@ function type_reference(conv: Converter, node: ts.TypeReferenceNode, typeText: s
   const symbol          = conv.checker.getSymbolAtLocation(node.typeName)
   const hasDeclarations = symbol?.declarations && symbol.declarations.length > 0
   const declFile        = hasDeclarations ? symbol.declarations[0].getSourceFile().fileName : undefined
-  const inputFiles      = conv.ast.data.modules.map(m => m.path)
-  const isExternal      = !symbol || !hasDeclarations || (declFile !== undefined && !inputFiles.includes(declFile))
+  const inputFiles      = conv.ast.data.modules.map(m => m.path.replace(/^\.\//, ""))
+  const isExternal      = !symbol || !hasDeclarations || (declFile !== undefined && !inputFiles.includes(declFile.replace(/^\.\//, "")))
 
   if (isExternal) {
     const existing = conv.externalTypes.get(typeText)

@@ -84,11 +84,9 @@ export function addProc(
     } else {
       argTypeId = mapType(conv, param.type)
     }
-    if (param.questionToken) {
-      conv.ast.data.types.push({ array: { name: addName(conv, "Option"), element: argTypeId } })
-      argTypeId = conv.ast.data.types.length - 1
-      conv.needsOptions = true
-    }
+    // NOTE: param.questionToken (optional params) are intentionally NOT wrapped
+    // in Option[T] — these procs are all importjs, and Nim's Option compiles to
+    // {val, has} wrapper objects that JS functions don't understand.
     let defaultValueId: number | undefined
     if (param.initializer) {
       if (ts.isNumericLiteral(param.initializer)) {

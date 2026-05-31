@@ -25,29 +25,51 @@ export function statement_class(conv: Converter, node: ts.Node) {
   conv.needsJsffi = true
   conv.ast.data.types.push({ primitive: { name: addName(conv, "JsObject"), keyword: addName(conv, "distinct") } })
   const distinctTargetId = conv.ast.data.types.length - 1
-  const aliasId = conv.ast.data.types.length
-  conv.ast.data.types.push({ alias: { name: addName(conv, prefixedClassName), target: addTypeExpr(conv, distinctTargetId) } })
-  conv.nimNames.add(nimNormalize(prefixedClassName))
-  const typeStmtId = conv.ast.data.statements.length
-  conv.ast.data.statements.push({ type: { id: aliasId } })
-  link_statement(conv, typeStmtId)
+  const distinctTargetExpr = addTypeExpr(conv, distinctTargetId)
 
-  // Emit fields as getter procs
+  const existingAliasId = conv.externalTypes.get(className)
+  let aliasId: number
+  if (existingAliasId !== undefined) {
+    aliasId = existingAliasId
+    conv.ast.data.types[aliasId].alias.target = distinctTargetExpr
+  } else {
+    aliasId = conv.ast.data.types.length
+    conv.ast.data.types.push({ alias: { name: addName(conv, prefixedClassName), target: distinctTargetExpr } })
+    conv.nimNames.add(nimNormalize(prefixedClassName))
+    const typeStmtId = conv.ast.data.statements.length
+    conv.ast.data.statements.push({ type: { id: aliasId } })
+    link_statement(conv, typeStmtId)
+  }
+
+  // Collect own member names for naming priority
+  const ownMemberNames = new Set<string>()
   for (const member of node.members) {
-    if (!ts.isPropertyDeclaration(member) || !member.name) continue
-    const rawFieldName = unquote(member.name.getText())
+    if (ts.isMethodDeclaration(member) && member.name) ownMemberNames.add(member.name.getText())
+    if (ts.isPropertyDeclaration(member) && member.name) ownMemberNames.add(unquote(member.name.getText()))
+  }
+
+  // Emit field getter procs (own + inherited)
+  const classType = conv.checker.getTypeAtLocation(node)
+  const allProperties = conv.checker.getPropertiesOfType(classType)
+  for (const prop of allProperties) {
+    const declarations = prop.getDeclarations()
+    if (!declarations || declarations.length === 0) continue
+    const declaration = declarations[0]
+    if (!ts.isPropertyDeclaration(declaration) && !ts.isPropertySignature(declaration)) continue
+    const rawFieldName = prop.name
     let fieldName = sanitize(conv, rawFieldName)
-    const fieldTypeId = mapType(conv, member.type)
-    const baseProcName = prefixed(conv, fieldName)
+    const fieldTypeId = mapType(conv, declaration.type)
+    const isOwn = ownMemberNames.has(rawFieldName)
+    const baseProcName = isOwn ? prefixed(conv, fieldName) : prefixedClassName + "_" + fieldName
     let procName = conv.nimNames.has(nimNormalize(baseProcName))
       ? uniqueNimName(conv, prefixedClassName + "_" + fieldName)
       : baseProcName
     conv.nimNames.add(nimNormalize(procName))
     const funcName = addName(conv, procName)
-    const selfTypeId = conv.ast.data.types.length
+    const getterSelfTypeId = conv.ast.data.types.length
     conv.ast.data.types.push({ primitive: { name: addName(conv, prefixedClassName) } })
     const selfTypeExpr = conv.ast.data.expressions.length
-    conv.ast.data.expressions.push({ type: { id: selfTypeId } })
+    conv.ast.data.expressions.push({ type: { id: getterSelfTypeId } })
     const selfBinding = conv.ast.data.bindings.length
     conv.ast.data.bindings.push({ name: addName(conv, "self"), dataType: selfTypeExpr, private: true })
     const fieldRetExpr = conv.ast.data.expressions.length
@@ -93,24 +115,72 @@ export function statement_class(conv: Converter, node: ts.Node) {
     break
   }
 
-  // Methods
-  for (const member of node.members) {
-    if (!ts.isMethodDeclaration(member) || !member.name) continue
-    const methodName = member.name.getText()
-    const isStatic = member.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword)
-    const pattern = isStatic ? jsClassName + "." + methodName + "(@)" : "#." + methodName + "(@)"
-    const self = isStatic ? undefined : selfTypeId
-    const baseProcName = isStatic ? prefixedClassName + "_" + sanitize(conv, methodName) : prefixed(conv, methodName)
-    let procName = conv.nimNames.has(nimNormalize(baseProcName))
-      ? uniqueNimName(conv, prefixedClassName + "_" + sanitize(conv, methodName))
-      : baseProcName
-    const classParamNames = new Set((node.typeParameters ?? []).map(tp => tp.name.text))
-    const methodOnlyParams = (member.typeParameters ?? []).filter(tp => !classParamNames.has(tp.name.text))
-    const mergedTypeParams: ts.TypeParameterDeclaration[] = [
-      ...(node.typeParameters ?? []),
-      ...methodOnlyParams,
-    ]
-    addProc(conv, procName, member.parameters, member.type, pattern, self, mergedTypeParams.length > 0 ? mergedTypeParams : undefined)
+  // Methods (own + inherited)
+  for (const prop of allProperties) {
+    const declarations = prop.getDeclarations()
+    if (!declarations || declarations.length === 0) continue
+    const declaration = declarations[0]
+
+    if (ts.isMethodDeclaration(declaration) || ts.isMethodSignature(declaration)) {
+      const methodName = prop.name
+      const isStatic = declaration.modifiers?.some(m => m.kind === ts.SyntaxKind.StaticKeyword) ?? false
+      if (isStatic) continue
+      const pattern = "#." + methodName + "(@)"
+      const baseProcName = ownMemberNames.has(methodName)
+        ? prefixed(conv, methodName)
+        : prefixedClassName + "_" + sanitize(conv, methodName)
+      let procName = conv.nimNames.has(nimNormalize(baseProcName))
+        ? uniqueNimName(conv, prefixedClassName + "_" + sanitize(conv, methodName))
+        : baseProcName
+      const classParamNames = new Set((node.typeParameters ?? []).map(tp => tp.name.text))
+      const methodTypeParams = ('typeParameters' in declaration && declaration.typeParameters) ? [...declaration.typeParameters] : []
+      const methodOnlyParams = methodTypeParams.filter(tp => !classParamNames.has(tp.name.text))
+      const mergedTypeParams: ts.TypeParameterDeclaration[] = [
+        ...(node.typeParameters ?? []),
+        ...methodOnlyParams,
+      ]
+      addProc(conv, procName, declaration.parameters, declaration.type, pattern, selfTypeId, mergedTypeParams.length > 0 ? mergedTypeParams : undefined)
+    }
+  }
+
+  // Property setters (own + inherited)
+  for (const prop of allProperties) {
+    const declarations = prop.getDeclarations()
+    if (!declarations || declarations.length === 0) continue
+    const declaration = declarations[0]
+    if (!ts.isPropertyDeclaration(declaration) && !ts.isPropertySignature(declaration)) continue
+    const isReadonly = declaration.modifiers?.some(m => m.kind === ts.SyntaxKind.ReadonlyKeyword) ?? false
+    if (isReadonly) continue
+    const rawFieldName = prop.name
+    const sanitizedFieldName = sanitize(conv, rawFieldName)
+    const fieldTypeId = mapType(conv, declaration.type)
+    const setterName = "`" + sanitizedFieldName + "=`"
+    const setterProcName = conv.nimNames.has(nimNormalize(prefixedClassName + "_" + sanitizedFieldName + "="))
+      ? uniqueNimName(conv, prefixedClassName + "_" + sanitizedFieldName + "_setter")
+      : setterName
+    conv.nimNames.add(nimNormalize(setterProcName))
+    const setterSelfTypeId = conv.ast.data.types.length
+    conv.ast.data.types.push({ primitive: { name: addName(conv, prefixedClassName) } })
+    const setterSelfExpr = conv.ast.data.expressions.length
+    conv.ast.data.expressions.push({ type: { id: setterSelfTypeId } })
+    const selfBindingId = conv.ast.data.bindings.length
+    conv.ast.data.bindings.push({ name: addName(conv, "self"), dataType: setterSelfExpr, private: true })
+    const valTypeExpr = conv.ast.data.expressions.length
+    conv.ast.data.expressions.push({ type: { id: fieldTypeId } })
+    const valBindingId = conv.ast.data.bindings.length
+    conv.ast.data.bindings.push({ name: addName(conv, "value"), dataType: valTypeExpr, private: true })
+    conv.ast.data.bindings[selfBindingId].next = valBindingId
+    const pragmaId = addImportjsPragma(conv, "#." + rawFieldName + " = #")
+    const procId = conv.ast.data.procedures.length
+    conv.ast.data.procedures.push({
+      name: addName(conv, setterProcName),
+      arguments: selfBindingId,
+      pragmas: pragmaId,
+      impure: true,
+    })
+    const stmtId = conv.ast.data.statements.length
+    conv.ast.data.statements.push({ procedure: { id: procId } })
+    link_statement(conv, stmtId)
   }
 }
 
