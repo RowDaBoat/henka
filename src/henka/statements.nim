@@ -7,6 +7,11 @@ import ./[clang, common, comments, pragmas, types, enums, cpp]
 
 
 proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
+  # Typedefs bypass the `seenSymbols` dedup (so typedef'd structs can replace
+  # forward declarations), so guard re-emission here: the same alias is reached
+  # again whenever its header is pulled into more than one translation unit.
+  if conv.sanitizer(conv.renamer(Typedef, name)) in conv.seenTypedefs:
+    return CXChildVisit_Continue.cint
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling

@@ -130,6 +130,23 @@ proc staticMethodPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   ])
 
 
+# Static data members are emitted as typedesc-receiver accessor procs. The `@`
+# token consumes the erased typedesc argument (rendering empty), so the getter
+# emits the bare qualified name and the setter emits `qualified = value`.
+proc staticFieldGetterPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
+  result = conv.chainPragmas(@[
+    ("importcpp", cursor.qualifiedName & "@"),
+    conv.linkPragma
+  ])
+
+
+proc staticFieldSetterPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
+  result = conv.chainPragmas(@[
+    ("importcpp", cursor.qualifiedName & " = @"),
+    conv.linkPragma
+  ])
+
+
 proc importPragmaKey*(conv: Converter): system.string =
   if conv.isCpp: "importcpp"
   else:          "importc"

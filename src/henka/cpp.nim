@@ -12,6 +12,7 @@ const AllocationOperators = ["operator new", "operator new[]", "operator delete"
 proc toMethod     *(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
+proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
 proc signatureUsesSimdRegister(conv :Converter; cursor :CXCursor) :bool=
@@ -172,6 +173,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
     of CXCursor_StructDecl         : discard conv[].toClass(child, child.spelling, defaultPublic = true)
     of CXCursor_ClassDecl          : discard conv[].toClass(child, child.spelling)
     of CXCursor_EnumDecl           : discard conv[].toEnum(child, child.spelling)
+    of CXCursor_VarDecl            : discard conv[].toStaticField(child, child.spelling)
     else                           : discard
     return CXChildVisit_Continue.cint
   , addr conv)
@@ -295,6 +297,57 @@ proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     impure    : some(true),
     pragmas   : some(pragmaId)))
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId)))
+  return CXChildVisit_Continue.cint
+
+
+proc staticFieldSelfBinding(conv :var Converter; parentName :string) :astTF.Id=
+  # The `_ : typedesc[Parent]` receiver that scopes the accessor under its class.
+  let parentExpr   = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(parentName))))
+  let typedescId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("typedesc"), instantiation: some(parentExpr))))
+  let typedescExpr = conv.ast.add_expression_type(typedescId)
+  result = conv.ast.add_binding(Binding(name: some(conv.addName("_")), dataType: some(typedescExpr), private: some(true)))
+
+
+proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  # A static data member: emit a getter and a setter, both taking the class as a
+  # `typedesc` receiver so call sites read `Parent.field` / `Parent.field = x`.
+  let fieldType = clang_getCursorType(cursor)
+  if conv.usesSimdRegister(fieldType):
+    return conv.skipSimdRegister(cursor, name)
+  # `const`/`constexpr` static members are compile-time constants and lookup
+  # tables (e.g. `static const StaticArray<Vec3, N> sUnitSphere`). Their types
+  # routinely rely on non-type template parameters henka can't represent, and
+  # they're rarely useful through FFI, so skip them. Mutable static singletons
+  # (`sInstance`, `sDefault`, ...) are not const-qualified and still emitted.
+  if clang_isConstQualifiedType(fieldType) != 0:
+    conv.emitSkipNote("Skipped " & name & " (const static member)  (" & cursor.sourceLocation & ")")
+    return CXChildVisit_Continue.cint
+  let parentName = clang_getCursorSemanticParent(cursor).spelling
+
+  # Getter: proc field(_ : typedesc[Parent]) : T
+  let getterSelf    = conv.staticFieldSelfBinding(parentName)
+  let getterTypeId  = conv.convertType(fieldType)
+  let getterRetExpr = conv.ast.add_expression_type(getterTypeId)
+  let getterId      = conv.ast.add_procedure(Procedure(
+    name       : some(conv.addRenamed(Proc, name)),
+    arguments  : some(getterSelf),
+    returnType : some(getterRetExpr),
+    impure     : some(true),
+    pragmas    : some(conv.staticFieldGetterPragmas(cursor))))
+  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: getterId)))
+
+  # Setter: proc `field=`(_ : typedesc[Parent]; value : T)
+  let setterSelf    = conv.staticFieldSelfBinding(parentName)
+  let valueTypeExpr = conv.ast.add_expression_type(conv.convertType(fieldType))
+  let valueBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("value")), dataType: some(valueTypeExpr), private: some(true)))
+  conv.ast.data.bindings.get[setterSelf].next = some(valueBinding)
+  let setterId = conv.ast.add_procedure(Procedure(
+    name      : some(conv.addRenamed(Proc, "`" & name & "=`")),
+    arguments : some(setterSelf),
+    impure    : some(true),
+    pragmas   : some(conv.staticFieldSetterPragmas(cursor)))
+  )
+  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: setterId)))
   return CXChildVisit_Continue.cint
 
 

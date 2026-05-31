@@ -144,6 +144,7 @@ const cppFeatures = [
   (check,      "operators"),
   (check,      "nested_qualified_types"),
   (check,      "static_methods"),
+  (check,      "static_fields"),
   (check,      "simd_vectors"),
   (runCpp,     "parameter_packs"),
 ]
