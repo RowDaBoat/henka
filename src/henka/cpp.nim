@@ -131,21 +131,12 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
   , addr hasMembers)
   let isForward = not hasMembers
   let pragmaId = conv.classPragmas(cursor, isForward)
-  # Only mark inheritable if the class declares virtual methods and has no base class
-  var hasVirtual = false
-  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-    if clang_getCursorKind(child) != CXCursor_CXXMethod: return CXChildVisit_Continue.cint
-    if clang_CXXMethod_isPureVirtual(child) == 0: return CXChildVisit_Continue.cint
-    cast[ptr bool](data)[] = true
-  , addr hasVirtual)
-  if not hasVirtual and baseCtx.link_ids.len == 0:
-    discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-      if clang_getCursorKind(child) != CXCursor_CXXMethod: return CXChildVisit_Continue.cint
-      if clang_CXXMethod_isVirtual(child) == 0: return CXChildVisit_Continue.cint
-      cast[ptr bool](data)[] = true
-    , addr hasVirtual)
+  # Mark root classes (those without a base of their own) inheritable, so any
+  # class can serve as a base — C++ inheritance hierarchies map to `object of`,
+  # which Nim only allows when the base is non-final. Derived classes are already
+  # non-final by virtue of being `object of <base>`, so they need no extra pragma.
   var finalPragma = pragmaId
-  if hasVirtual and baseCtx.link_ids.len == 0:
+  if not isForward and baseCtx.link_ids.len == 0:
     let inheritableId = conv.addPragma("inheritable")
     conv.ast.data.pragmas.get[inheritableId].next = some(pragmaId)
     finalPragma = inheritableId

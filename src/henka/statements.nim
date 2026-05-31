@@ -50,7 +50,11 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   elif targetSpelling.startsWith("union "):  targetSpelling = targetSpelling[6..^1]
   elif targetSpelling.startsWith("enum "):   targetSpelling = targetSpelling[5..^1]
   elif targetSpelling.startsWith("const "):  targetSpelling = targetSpelling[6..^1]
-  let renamedTarget = conv.sanitizer(conv.renamer(Typedef, targetSpelling))
+  # Compare against the namespace-stripped target: a qualified alias like
+  # `using Inner = Outer::Inner` resolves to the already-hoisted `Inner` type, so
+  # emitting it would produce a recursive `Inner = Inner`. convertType strips the
+  # namespace the same way, so strip here before deciding it's a self-alias.
+  let renamedTarget = conv.sanitizer(conv.renamer(Typedef, stripNamespace(targetSpelling)))
   if renamedAlias == renamedTarget:
     return CXChildVisit_Continue.cint
 
