@@ -261,3 +261,12 @@ proc generate*(
   result = case generated.modules.len > 0
     of true:  generated.modules[0].definitions
     of false: ""
+
+
+#_______________________________________
+# @section Generator: From JSON (stdin)
+#_____________________________
+proc fromJson*(json: system.string): Output =
+  let ast = astTF.fromJson(json)
+  result = nonim.codegen.nim(ast)
+

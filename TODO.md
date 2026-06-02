@@ -193,6 +193,126 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Test with a large C++ library (Qt, LLVM, Boost) to stress-test template handling
 
 
+## JavaScript / TypeScript
+
+### Pipeline
+- [x] TypeScript compiler API parses .ts and .js files
+- [x] Produces astTF JSON matching the Zig spec format
+- [x] Zig/slate codegen reads JSON and renders Nim output
+- [x] Generated Nim compiles with `-b:js`
+- [x] `henka` CLI detects .ts/.js extensions and dispatches to `henka-js`
+- [x] `henka-js` outputs astTF JSON to stdout, `henka` reads and processes it
+
+### Supported declarations
+- [x] Function declarations → `proc` with `{.importjs.}`
+- [x] Variable/const declarations → `const` with literal values
+- [x] Interface declarations → `type = object` with fields
+- [x] Type alias declarations → `type = alias` or inline object
+- [x] Class declarations → `type = distinct JsObject` with getter procs + constructor + instance/static methods
+- [x] Enum declarations → `type = cint`/`cstring` + const values (numeric and string enums)
+- [x] Array types (`T[]`) → `seq[T]`
+- [x] Callback/function types → procedure types with correct `proc(...)` rendering
+
+### Type mappings
+- [x] `number` → `cdouble`
+- [x] `string` → `cstring`
+- [x] `boolean` → `bool`
+- [x] `void` → `void`
+- [x] Type references (named types)
+- [x] Object literal types
+- [x] `any` → `JsObject` (auto-imports `std/jsffi`)
+- [x] `number[]` / `Array<T>` → `seq[T]`
+- [x] `string | number` (union types) → `JsObject`
+- [x] `Promise<T>` → `Future[T]` (auto-imports `std/asyncjs`)
+- [x] Optional types (`x?: T`, `T | undefined`) → `Option[T]` (auto-imports `std/options`)
+- [x] Generic types (`Map<K,V>`, `Set<T>`, `Record<K,V>`) → `JsObject` fallback
+
+### Class support
+- [x] Classes emit as `distinct JsObject` — opaque handles, no nimCopy corruption
+- [x] Fields → getter procs with `{.importjs:"#.fieldName".}`
+- [x] Constructor → `proc newClassName(...): ClassName {.importjs: "new ClassName(@)".}`
+- [x] Instance methods → `proc methodName(self: ClassName, ...) {.importjs: "#.methodName(@)".}`
+- [x] Static methods → `proc methodName(...) {.importjs: "ClassName.methodName(@)".}`
+- [x] Interface inheritance → `object of Parent`, `{.inheritable.}` only on types in inheritance chains
+
+### Other features
+- [x] Method signatures in interfaces
+- [x] Default parameter values
+- [x] Rest parameters (`...args`) → `varargs`
+- [x] Namespace declarations → `_` separated prefixes, `.` in importjs patterns
+- [x] Nested/anonymous object types → `AnonymousN` synthetic types
+- [x] Overloaded functions → native Nim overloads
+
+### Known issues (real-world testing: WebGPU, WebGL, lib.dom.d.ts)
+- [x] `__` prefix identifiers — sanitized: `__x` → `internal_x`, `_x` → `priv_x`
+- [x] `__` prefix fields — sanitized same as identifiers, not skipped
+- [x] Quoted/string-literal field names — quotes stripped from string-literal property names
+- [x] `undefined` as field/return type — fields get `Option[Undefined]`, returns get `Undefined` + `{.discardable.}`, emits `type Undefined* = distinct pointer`
+- [x] Generic type parameters — simple `<T>` emits as Nim generic `[T]`, indexed access types (`Config[K]`) fall back to `JsObject`
+- [x] String union types — `distinct cstring` + typed consts with `TypeName("value")` casts
+- [x] `null` in union types — `T | null` maps to `Option[T]`, filtered alongside `undefined`
+- [x] Empty interfaces as opaque handles — `distinct JsObject` when no fields, no methods, no inheritance
+- [x] Const with no initializer — emits as `var` with `{.importjs.}` pragma for runtime access
+- [x] Distinct type support — uses `TypePrimitive.keyword` field with `"distinct"` identifier
+- [x] TS utility types — all known wrappers, `object`, and `unknown` keywords. Currently mapped to `JsObject`
+- [x] Overload deduplication — literal type params (string, number, bool) that collapse generate synthetic `distinct` types (`ProcName_paramName`) with typed consts. Handles multi-param, tracks param position. Return type becomes `JsObject`.
+- [x] Multi-inheritance interfaces — emit as `distinct JsObject` with field getter procs. User casts to parent types to access their methods.
+- [x] TS callback types in fields — `ParenthesizedType` unwrapped, `this` param skipped in `FunctionType` handler
+- [x] Generic types in `object of` clause — `ExpressionWithTypeArguments` now handled in `mapType`, renders `Collection[cstring]` correctly
+- [x] Generic interface declarations — `interface Collection<T>` emits `type Collection*[T] = object` with generic bindings. Methods get `[T]` params and `self: Collection[T]` instantiation.
+- [x] Forward references within same file — Nim type blocks handle forward refs naturally, no reordering needed
+- [x] Special characters in identifiers — hyphens and `$` get backtick-quoted via `sanitize`, `$` in importjs patterns escaped with `$$`
+- [x] Trailing underscores and empty names — `sanitize` uses per-name counter for trailing `_` suffixes, empty names get `unnamedN`
+- [x] Non-string union type aliases — `type X = A | B` now emits `type X* = JsObject` alias
+- [x] Special chars in const names from literals — full const name (prefix + literal) goes through `sanitize` which backtick-quotes when non-identifier chars present
+- [x] Tuple types — TS `[A, B]` → unnamed `(A, B)`, named `[a: A, b: B]` → `tuple[a: A, b: B]`. Works in return types, type aliases, and interface methods.
+- [x] UIEventInit inheritance cascade — fixed by topological sort of child type chain (DFS post-order). Root types (no parent) emit first, then child types in dependency order.
+- [x] Intersection types (`A & B`) — mapped to `JsObject`. Proper support would require generating a synthetic type that merges fields from all members, which needs manual code generation.
+- [x] External type references — types from other lib files emit as `type X* = JsObject` aliases. Detection checks if symbol declarations are outside the input file set.
+- [x] `null` as standalone type — mapped to `Null` (`distinct JsObject`), emits type declaration like `Undefined`
+- [x] `bigint` type — mapped to `BiggestInt`
+- [x] `never` type — mapped to `void`
+- [x] `keyof T` operator type — mapped to `JsObject`
+- [x] Template literal types (`section-${string}`) — mapped to `cstring`
+- [x] Interface declaration merging — duplicate declarations merged by appending new fields to existing type's binding chain via `objectTypeIds` lookup
+
+
+### Typescript-specific hardcases
+- [ ] Multi-inherit parent children — children that `object of` a `distinct JsObject` parent fail to compile
+- [ ] Multi-inheritance ergonomics — duplicate parent methods onto the child type so casting isn't needed
+- [ ] Intersection types: proper merging — `A & B` could generate a synthetic object type with fields from both A and B, but requires resolving both types and merging their members at emit time.
+- [ ] Overload dedup: preserve return type when all overloads have the same return (might not be possible, Nim rejects overloads that differ only in return type)
+- [ ] Generic types without type args — `MessageEvent`, `ReadableStream` etc. used without `[T]` produce "not a concrete type" errors
+- [ ] `{.emit.}` import placement — ES imports land at bottom of generated JS
+- [ ] (maybe?) Automatic ES module generation
+- [ ] TS utility types: proper mappings (investigate each)
+  - [ ] `Partial<T>` — could be `T`
+  - [ ] `Required<T>` — could be `T`
+  - [ ] `Readonly<T>` — could be `T`
+  - [ ] `NonNullable<T>` — could be `T`
+  - [ ] `Pick<T, K>` — could be `T`
+  - [ ] `Omit<T, K>` — could be `T`
+  - [ ] `Record<K, V>` — could be `JsAssoc[K, V]` or custom type
+  - [ ] `Extract<T, U>` — could be `U`
+  - [ ] `Exclude<T, U>` — could be `T`
+  - [ ] `ReturnType<T>` — could resolve from function type
+  - [ ] `Parameters<T>` — could resolve to tuple
+  - [ ] `ConstructorParameters<T>` — could resolve to tuple
+  - [ ] `InstanceType<T>` — could resolve to class type
+  - [ ] `Awaited<T>` — could be `T`
+  - [ ] `Iterable<T>` — could be `seq[T]` or custom `JsIterable[T]`
+  - [ ] `Iterator<T>` — could be custom type with `next()` binding
+  - [ ] `IterableIterator<T>` — could be custom type or `seq[T]`
+  - [ ] `AsyncIterable<T>` — could be custom type
+  - [ ] `AsyncIterator<T>` — could be custom type
+  - [ ] `AsyncIterableIterator<T>` — could be custom type
+  - [ ] `Map<K, V>` — could be `distinct JsObject` with method bindings
+  - [ ] `Set<T>` — could be `distinct JsObject` with method bindings
+  - [ ] `WeakMap<K, V>` — could be `distinct JsObject` with method bindings
+  - [ ] `WeakSet<T>` — could be `distinct JsObject` with method bindings
+  - [ ] `ThisType<T>` — could skip/ignore (marker type only)
+
+
 ## Documentation
 - [ ] Write user-facing docs for callback APIs (renamer, symbolFilter, symbolOverride, typeMapper, pragmaOverride, etc.)
 - [ ] Document the C vs C++ detection and `--cpp` flag behavior

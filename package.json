@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "henka-js",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "@heysokam/astTF": "git+https://codeberg.org/heysokam/astTF.git"
+  },
+  "bin": {
+    "henka-js": "./src/henka.ts"
+  },
+  "scripts": {
+    "compile": "bun compile:js && bun compile:nim",
+    "compile:nim": "nimble build",
+    "compile:js": "bun --bun build --compile --minify --bytecode --sourcemap ./src/henka.ts --outfile ./bin/henka-js"
+  }
+}

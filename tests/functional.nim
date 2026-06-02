@@ -2,8 +2,9 @@ import std/[unittest, os, osproc, strformat, strtabs, strutils]
 import ../src/henka
 
 
-proc nim(action: string, file: string, flags: string = ""): bool =
-  let (output, exitCode) = execCmdEx(&"nim {action} {flags} {quoteShell(file)}")
+proc nim(action: string, file: string, backend: string = "", flags: string = ""): bool =
+  let backendFlag = if backend.len > 0: &"--backend:{backend} " else: ""
+  let (output, exitCode) = execCmdEx(&"nim {action} {backendFlag}{flags} {quoteShell(file)}")
 
   if exitCode != 0:
     echo output
@@ -124,7 +125,7 @@ suite "Henka C should support":
         linkMode = f.linkMode, dynLibName = f.dynLibName, dynLibPath = f.dynLibPath,
       )
       (workdir/bindings).writeFile(bindingsSource)
-      check nim(f.testType, workdir/target, flags)
+      check nim(f.testType, workdir/target, flags = flags)
 
 const cpp = "cpp"
 const cppHeader = "header.hpp"
@@ -152,15 +153,13 @@ const cppFeatures = [
   (runCpp,     "parameter_packs"),
 ]
 
-
 suite "Henka C++ should support":
   for (action, feature) in cppFeatures:
     test feature.replace("_", " "):
       let workdir = baseDir/cpp/feature
       let bindingsSource = generate(workdir/cppHeader, isCpp = true)
       (workdir/bindings).writeFile(bindingsSource)
-      check nim(action, workdir/target)
-
+      check nim(action, workdir/target, backend = "cpp")
 
 const cppMultiFeatures = [
   (check, "multiheader_shared_class",           @["a.hpp", "b.hpp"]),
@@ -183,3 +182,59 @@ suite "Henka C++ multi-header should support":
       let bindingsSource = generateMulti(headerPaths)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target)
+
+
+const js = "js"
+const jsHeader = "header.ts"
+const henkaTsBinary = currentSourcePath().parentDir().parentDir() / "bin" / "henka-js"
+const jsFeatures = [
+  (check, "identifiers"),
+  (check, "interfaces"),
+  (check, "variables"),
+  (check, "any"),
+  (check, "arrays"),
+  (check, "async"),
+  (check, "callbacks"),
+  (check, "classes"),
+  (check, "defaults"),
+  (check, "enums"),
+  (check, "generics"),
+  (check, "inheritance_single"),
+  (check, "inheritance_multiple"),
+  (check, "namespaces"),
+  (check, "nested"),
+  (check, "optionals"),
+  (check, "overloads"),
+  (check, "rest"),
+  (check, "unions"),
+  (check, "generics_params"),
+  (check, "types_utility"),
+  (check, "overload_dedup"),
+  (check, "callbacks_in_fields"),
+  (check, "generic_interfaces"),
+  (check, "forward_references"),
+  (check, "identifiers_special"),
+  (check, "types_external"),
+  (check, "type_tuple"),
+  (check, "type_null"),
+  (check, "type_undefined"),
+  (check, "type_never"),
+  (check, "type_bigint"),
+  (check, "type_keyof"),
+  (check, "type_template_literal"),
+  (check, "multi_inherit_children"),
+  (check, "interface_merging"),
+  (check, "generic_no_args"),
+]
+
+suite "Henka JS should support":
+  for (action, feature) in jsFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/js/feature
+      let (json, exitCode) = execCmdEx(henkaTsBinary & " " & quoteShell(workdir/jsHeader))
+      check exitCode == 0
+      let output = fromJson(json)
+      let bindingsSource = if output.modules.len > 0: output.modules[0].definitions else: ""
+      (workdir/bindings).writeFile(bindingsSource)
+      check nim(action, workdir/target, backend = "js")
+
