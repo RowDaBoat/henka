@@ -130,6 +130,20 @@ proc staticMethodPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
   ])
 
 
+proc staticFieldGetterPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
+  result = conv.chainPragmas(@[
+    ("importcpp", cursor.qualifiedName & "@"),
+    conv.linkPragma
+  ])
+
+
+proc staticFieldSetterPragmas*(conv: var Converter; cursor: CXCursor): astTF.Id =
+  result = conv.chainPragmas(@[
+    ("importcpp", cursor.qualifiedName & " = @"),
+    conv.linkPragma
+  ])
+
+
 proc importPragmaKey*(conv: Converter): system.string =
   if conv.isCpp: "importcpp"
   else:          "importc"
