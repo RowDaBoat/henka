@@ -131,10 +131,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
   , addr hasMembers)
   let isForward = not hasMembers
   let pragmaId = conv.classPragmas(cursor, isForward)
-  # Mark root classes (those without a base of their own) inheritable, so any
-  # class can serve as a base — C++ inheritance hierarchies map to `object of`,
-  # which Nim only allows when the base is non-final. Derived classes are already
-  # non-final by virtue of being `object of <base>`, so they need no extra pragma.
+
   var finalPragma = pragmaId
   if not isForward and baseCtx.link_ids.len == 0:
     let inheritableId = conv.addPragma("inheritable")
@@ -292,7 +289,6 @@ proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
 
 
 proc staticFieldSelfBinding(conv :var Converter; parentName :string) :astTF.Id=
-  # The `_ : typedesc[Parent]` receiver that scopes the accessor under its class.
   let parentExpr   = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(parentName))))
   let typedescId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("typedesc"), instantiation: some(parentExpr))))
   let typedescExpr = conv.ast.add_expression_type(typedescId)
@@ -300,22 +296,15 @@ proc staticFieldSelfBinding(conv :var Converter; parentName :string) :astTF.Id=
 
 
 proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint=
-  # A static data member: emit a getter and a setter, both taking the class as a
-  # `typedesc` receiver so call sites read `Parent.field` / `Parent.field = x`.
   let fieldType = clang_getCursorType(cursor)
   if conv.usesSimdRegister(fieldType):
     return conv.skipSimdRegister(cursor, name)
-  # `const`/`constexpr` static members are compile-time constants and lookup
-  # tables (e.g. `static const StaticArray<Vec3, N> sUnitSphere`). Their types
-  # routinely rely on non-type template parameters henka can't represent, and
-  # they're rarely useful through FFI, so skip them. Mutable static singletons
-  # (`sInstance`, `sDefault`, ...) are not const-qualified and still emitted.
+
   if clang_isConstQualifiedType(fieldType) != 0:
     conv.emitSkipNote("Skipped " & name & " (const static member)  (" & cursor.sourceLocation & ")")
     return CXChildVisit_Continue.cint
   let parentName = clang_getCursorSemanticParent(cursor).spelling
 
-  # Getter: proc field(_ : typedesc[Parent]) : T
   let getterSelf    = conv.staticFieldSelfBinding(parentName)
   let getterTypeId  = conv.convertType(fieldType)
   let getterRetExpr = conv.ast.add_expression_type(getterTypeId)
@@ -327,7 +316,6 @@ proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     pragmas    : some(conv.staticFieldGetterPragmas(cursor))))
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: getterId)))
 
-  # Setter: proc `field=`(_ : typedesc[Parent]; value : T)
   let setterSelf    = conv.staticFieldSelfBinding(parentName)
   let valueTypeExpr = conv.ast.add_expression_type(conv.convertType(fieldType))
   let valueBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("value")), dataType: some(valueTypeExpr), private: some(true)))
@@ -339,6 +327,7 @@ proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     pragmas   : some(conv.staticFieldSetterPragmas(cursor)))
   )
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: setterId)))
+
   return CXChildVisit_Continue.cint
 
 

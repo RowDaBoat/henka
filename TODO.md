@@ -39,6 +39,17 @@
 - [x] Per-module statement chain tracking — chain pointers reset and stitched per module in generator loop
 - [x] `size_t` resolves to `cint` — was missing `#include <stddef.h>` in test header. clang needs the typedef visible to report `size_t` correctly.
 - [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
+- [ ] Const static members skipped entirely — `static const int sMax` produces no binding (`toStaticField` bails at `cpp.nim:306` because the static-field path always emits a getter+setter pair and a const member can't have a setter). Should emit a getter-only accessor (`proc sMax(_: typedesc[Widget]): cint {.importcpp:"Widget::sMax".}`). See `tests/cpp/static_fields`.
+- [ ] Namespace support — C++ namespaces are flattened into one top-level Nim module (`generator.nim:72` just descends into `CXCursor_Namespace` children, discarding the namespace as a Nim concept)
+  - [ ] No Nim-level structure (no modules / prefixing / grouping) and no handling of cross-namespace name collisions — `a::Vec3` and `b::Vec3` both become `Vec3`. Only fixable via user `renamer`/`symbolFilter`. (Related: godot-cpp namespace qualifiers leaking, above.)
+  - [ ] (Verify this is true before implementing) Enums lose namespace/class qualification in `importcpp` — `enumPragmas` (`pragmas.nim:182`) uses bare `cName` instead of `cursor.qualifiedName` like classes/funcs do. `math::Color` → `importcpp:"Color"`, `JPH::Color::Type` → `importcpp:"Type"`. Latent (Nim re-emits enums as its own `cint` type) but incorrect.
+  - Namespace related tests
+    - tests/cpp/big
+    - tests/cpp/nested_qualified_types
+- [ ] `using`/`typedef` aliases can emit a distinct opaque `{.incompleteStruct.} = object` instead of an `Alias = Underlying` alias — the result is a *new* type incompatible with the underlying one, so callers must comment out the pragma and `cast` to pass an underlying value where the alias is expected. The underlying types are emitted as full objects and most aliases render fine, so the alias *target* exists; only a subset of alias emissions is wrong. Two broken output shapes observed:
+  - qualified `importcpp` (`Pkg::Alias`) — the forward-declared-class path, `classPragmas(isForward=true)` (`pragmas.nim:92`).
+  - bare `importcpp`, no namespace qualifier — `toAlias`'s anonymous-struct branch (`statements.nim:29`; bare `name` at `:35`), taken when the underlying elaborated spelling contains a space.
+  Which aliases degrade, and why, is not yet pinned down. Needs a minimal `tests/cpp` repro.
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [x] Move multi-module rendering logic into nonim — `nonim.codegen.nim(ast)` renders all modules, returns Output
@@ -56,6 +67,8 @@
   - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
   - [x] `const T&` → `T` (flattened, const stripped)
   - [x] `const T&&` → `T` (flattened, const stripped)
+  - [ ] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on non-primitive types
+
 - [ ] Pragma values as proper expressions — unquoted pragma values (like `sizeof(cint)`) are currently stored as `LiteralKind.generic` literals. They should be proper expression trees (identifier, call, etc.) once nonim codegen supports arbitrary expression generation.
 - [ ] Macro expression parser — libclang only gives raw tokens for macros, no parse tree. Need a mini C expression parser to handle casts `(Type)val`, struct initializers `{0}`, function-like calls `FOO(a,b)`. Would fix most remaining macro-related failures (SDL, stb, flecs, raylib). Operators and literal suffixes now handled by `defaultValueMapper`.
 
@@ -185,4 +198,3 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 - [ ] Document the C vs C++ detection and `--cpp` flag behavior
 - [ ] Document `LinkMode.header` vs `LinkMode.dynlib` tradeoffs
 - [ ] Document `SingleFileParse` behavior and when to use it
-

@@ -7,11 +7,9 @@ import ./[clang, common, comments, pragmas, types, enums, cpp]
 
 
 proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
-  # Typedefs bypass the `seenSymbols` dedup (so typedef'd structs can replace
-  # forward declarations), so guard re-emission here: the same alias is reached
-  # again whenever its header is pulled into more than one translation unit.
   if conv.sanitizer(conv.renamer(Typedef, name)) in conv.seenTypedefs:
     return CXChildVisit_Continue.cint
+
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling
@@ -50,10 +48,7 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   elif targetSpelling.startsWith("union "):  targetSpelling = targetSpelling[6..^1]
   elif targetSpelling.startsWith("enum "):   targetSpelling = targetSpelling[5..^1]
   elif targetSpelling.startsWith("const "):  targetSpelling = targetSpelling[6..^1]
-  # Compare against the namespace-stripped target: a qualified alias like
-  # `using Inner = Outer::Inner` resolves to the already-hoisted `Inner` type, so
-  # emitting it would produce a recursive `Inner = Inner`. convertType strips the
-  # namespace the same way, so strip here before deciding it's a self-alias.
+
   let renamedTarget = conv.sanitizer(conv.renamer(Typedef, stripNamespace(targetSpelling)))
   if renamedAlias == renamedTarget:
     return CXChildVisit_Continue.cint
