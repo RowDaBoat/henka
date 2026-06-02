@@ -1,6 +1,6 @@
 # @deps std
 from std/os import lastPathPart, relativePath
-from std/strutils import join
+from std/strutils import join, replace
 # @deps nonim
 import nonim/ast as astTF
 # deps henka
@@ -180,7 +180,7 @@ proc funcPragmas*(conv: var Converter; cName: system.string): astTF.Id =
   var pairs: seq[(system.string, system.string)] = @[]
 
   if conv.isCpp:
-    pairs.add (conv.importPragmaKey, cName & "(@)")
+    pairs.add (conv.importPragmaKey, cName.replace("\"", "\\\"") & "(@)")
     pairs.add conv.linkPragma
   else:
     pairs.add (conv.importPragmaKey, cName)

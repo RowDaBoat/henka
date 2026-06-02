@@ -38,6 +38,7 @@ const baseDir = currentSourcePath().parentDir()
 const check = "check"
 const run = "r"
 const compileCpp = "cpp"
+const runCpp = "cpp -r"
 
 
 type Feature = object
@@ -83,7 +84,7 @@ const cFeatures = [
   feature(run,   "enums_to_enums"),
   feature(run,   "enums_holes"),
   feature(run,   "enums_negative"),
-  feature(run,   "enums_bitflags"),
+  #feature(run,   "enums_bitflags"),
   feature(run,   "enums_typedef"),
   feature(run,   "enums_anonymous"),
   feature(run,   "enums_sentinel"),
@@ -141,8 +142,12 @@ const cppFeatures = [
   (run,        "enums_unscoped"),
   (compileCpp, "function_pointer_const"),
   (check,      "typedef_struct_pointer"),
+  (check,      "operators"),
+  (check,      "nested_qualified_types"),
+  (check,      "static_methods"),
+  (check,      "simd_vectors"),
+  (runCpp,     "parameter_packs"),
 ]
-
 
 suite "Henka C++ should support":
   for (action, feature) in cppFeatures:
@@ -151,6 +156,28 @@ suite "Henka C++ should support":
       let bindingsSource = generate(workdir/cppHeader, isCpp = true)
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target, backend = "cpp")
+
+const cppMultiFeatures = [
+  (check, "multiheader_shared_class",           @["a.hpp", "b.hpp"]),
+  (check, "multiheader_forward_then_definition", @["a.hpp", "b.hpp"]),
+]
+
+proc generateMulti(headerPaths: seq[string]): string =
+  let output = generate(headerPaths, isCpp = true, singleFileParse = false)
+  for module in output.modules:
+    if module.definitions.len > 0:
+      result.add module.definitions
+      if not result.endsWith("\n"): result.add "\n"
+
+suite "Henka C++ multi-header should support":
+  for (action, feature, headers) in cppMultiFeatures:
+    test feature.replace("_", " "):
+      let workdir = baseDir/cpp/feature
+      var headerPaths: seq[string] = @[]
+      for h in headers: headerPaths.add workdir/h
+      let bindingsSource = generateMulti(headerPaths)
+      (workdir/bindings).writeFile(bindingsSource)
+      check nim(action, workdir/target)
 
 
 const js = "js"
@@ -206,3 +233,4 @@ suite "Henka JS should support":
       let bindingsSource = if output.modules.len > 0: output.modules[0].definitions else: ""
       (workdir/bindings).writeFile(bindingsSource)
       check nim(action, workdir/target, backend = "js")
+

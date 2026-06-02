@@ -136,6 +136,7 @@ proc generate*(
     module            : 0,
     tu                : nil,
     seenStructs       : initTable[system.string, (astTF.Id, astTF.Id)](),
+    seenFullStructs   : initHashSet[system.string](),
     seenEnums         : initHashSet[system.string](),
     seenSymbols       : initHashSet[system.string](),
     seenTypedefs      : initHashSet[system.string](),
