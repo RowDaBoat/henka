@@ -65,6 +65,7 @@ type Converter* = object
   module*            : astTF.Id
   tu*                : CXTranslationUnit
   seenStructs*       : Table[system.string, (astTF.Id, astTF.Id)]
+  seenFullStructs*   : HashSet[system.string]
   seenEnums*         : HashSet[system.string]
   seenSymbols*       : HashSet[system.string]
   seenTypedefs*      : HashSet[system.string]
