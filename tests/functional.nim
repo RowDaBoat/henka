@@ -135,6 +135,7 @@ const cppFeatures = [
   (check,      "ordering_forward_templates"),
   (check,      "template_generics"),
   (check,      "references"),
+  (runCpp,     "reference_to_pointer"),
   (check,      "enums_scoped"),
   (check,      "externc"),
   (check,      "defines"),
@@ -143,7 +144,10 @@ const cppFeatures = [
   (check,      "typedef_struct_pointer"),
   (check,      "operators"),
   (check,      "nested_qualified_types"),
+  (runCpp,     "qualified_self_alias"),
   (check,      "static_methods"),
+  (check,      "static_fields"),
+  (runCpp,     "inheritance_chain"),
   (check,      "simd_vectors"),
   (runCpp,     "parameter_packs"),
 ]

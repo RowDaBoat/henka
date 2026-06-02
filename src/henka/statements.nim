@@ -7,6 +7,9 @@ import ./[clang, common, comments, pragmas, types, enums, cpp]
 
 
 proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
+  if conv.sanitizer(conv.renamer(Typedef, name)) in conv.seenTypedefs:
+    return CXChildVisit_Continue.cint
+
   let underlying = clang_getTypedefDeclUnderlyingType(cursor)
   if underlying.kind == CXType_Elaborated:
     var elabName = underlying.typeSpelling
@@ -45,7 +48,8 @@ proc toAlias*(conv: var Converter, cursor: CXCursor, name: string): cint =
   elif targetSpelling.startsWith("union "):  targetSpelling = targetSpelling[6..^1]
   elif targetSpelling.startsWith("enum "):   targetSpelling = targetSpelling[5..^1]
   elif targetSpelling.startsWith("const "):  targetSpelling = targetSpelling[6..^1]
-  let renamedTarget = conv.sanitizer(conv.renamer(Typedef, targetSpelling))
+
+  let renamedTarget = conv.sanitizer(conv.renamer(Typedef, stripNamespace(targetSpelling)))
   if renamedAlias == renamedTarget:
     return CXChildVisit_Continue.cint
 

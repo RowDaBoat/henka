@@ -12,6 +12,7 @@ const AllocationOperators = ["operator new", "operator new[]", "operator delete"
 proc toMethod     *(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
+proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint
 
 
 proc signatureUsesSimdRegister(conv :Converter; cursor :CXCursor) :bool=
@@ -130,21 +131,9 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
   , addr hasMembers)
   let isForward = not hasMembers
   let pragmaId = conv.classPragmas(cursor, isForward)
-  # Only mark inheritable if the class declares virtual methods and has no base class
-  var hasVirtual = false
-  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-    if clang_getCursorKind(child) != CXCursor_CXXMethod: return CXChildVisit_Continue.cint
-    if clang_CXXMethod_isPureVirtual(child) == 0: return CXChildVisit_Continue.cint
-    cast[ptr bool](data)[] = true
-  , addr hasVirtual)
-  if not hasVirtual and baseCtx.link_ids.len == 0:
-    discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-      if clang_getCursorKind(child) != CXCursor_CXXMethod: return CXChildVisit_Continue.cint
-      if clang_CXXMethod_isVirtual(child) == 0: return CXChildVisit_Continue.cint
-      cast[ptr bool](data)[] = true
-    , addr hasVirtual)
+
   var finalPragma = pragmaId
-  if hasVirtual and baseCtx.link_ids.len == 0:
+  if not isForward and baseCtx.link_ids.len == 0:
     let inheritableId = conv.addPragma("inheritable")
     conv.ast.data.pragmas.get[inheritableId].next = some(pragmaId)
     finalPragma = inheritableId
@@ -172,6 +161,7 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
     of CXCursor_StructDecl         : discard conv[].toClass(child, child.spelling, defaultPublic = true)
     of CXCursor_ClassDecl          : discard conv[].toClass(child, child.spelling)
     of CXCursor_EnumDecl           : discard conv[].toEnum(child, child.spelling)
+    of CXCursor_VarDecl            : discard conv[].toStaticField(child, child.spelling)
     else                           : discard
     return CXChildVisit_Continue.cint
   , addr conv)
@@ -295,6 +285,49 @@ proc toDestructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     impure    : some(true),
     pragmas   : some(pragmaId)))
   conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: procId)))
+  return CXChildVisit_Continue.cint
+
+
+proc staticFieldSelfBinding(conv :var Converter; parentName :string) :astTF.Id=
+  let parentExpr   = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(parentName))))
+  let typedescId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("typedesc"), instantiation: some(parentExpr))))
+  let typedescExpr = conv.ast.add_expression_type(typedescId)
+  result = conv.ast.add_binding(Binding(name: some(conv.addName("_")), dataType: some(typedescExpr), private: some(true)))
+
+
+proc toStaticField*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  let fieldType = clang_getCursorType(cursor)
+  if conv.usesSimdRegister(fieldType):
+    return conv.skipSimdRegister(cursor, name)
+
+  if clang_isConstQualifiedType(fieldType) != 0:
+    conv.emitSkipNote("Skipped " & name & " (const static member)  (" & cursor.sourceLocation & ")")
+    return CXChildVisit_Continue.cint
+  let parentName = clang_getCursorSemanticParent(cursor).spelling
+
+  let getterSelf    = conv.staticFieldSelfBinding(parentName)
+  let getterTypeId  = conv.convertType(fieldType)
+  let getterRetExpr = conv.ast.add_expression_type(getterTypeId)
+  let getterId      = conv.ast.add_procedure(Procedure(
+    name       : some(conv.addRenamed(Proc, name)),
+    arguments  : some(getterSelf),
+    returnType : some(getterRetExpr),
+    impure     : some(true),
+    pragmas    : some(conv.staticFieldGetterPragmas(cursor))))
+  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: getterId)))
+
+  let setterSelf    = conv.staticFieldSelfBinding(parentName)
+  let valueTypeExpr = conv.ast.add_expression_type(conv.convertType(fieldType))
+  let valueBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("value")), dataType: some(valueTypeExpr), private: some(true)))
+  conv.ast.data.bindings.get[setterSelf].next = some(valueBinding)
+  let setterId = conv.ast.add_procedure(Procedure(
+    name      : some(conv.addRenamed(Proc, "`" & name & "=`")),
+    arguments : some(setterSelf),
+    impure    : some(true),
+    pragmas   : some(conv.staticFieldSetterPragmas(cursor)))
+  )
+  conv.add_statement_chained(Statement(kind: astTF.sProcedure, procedure: StatementProcedure(id: setterId)))
+
   return CXChildVisit_Continue.cint
 
 
