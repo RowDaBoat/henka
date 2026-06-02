@@ -1,5 +1,6 @@
 # @deps std
 from std/strutils import startsWith, replace, contains, split, strip, find, rfind
+from std/os import isRelativeTo
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
@@ -7,6 +8,23 @@ import ./[common, clang, pragmas]
 
 
 proc convert_type*(conv: var Converter, typ: CXType): astTF.Id
+
+const clang_RecordKinds = {CXCursor_StructDecl, CXCursor_ClassDecl, CXCursor_UnionDecl, CXCursor_ClassTemplate}
+
+
+proc stripNamespace*(name: string): string =
+  let bracket = name.find({'<', '['})
+  let scanEnd = if bracket >= 0: bracket - 1 else: name.high
+  let marker  = name.rfind("::", last = scanEnd)
+  result = if marker >= 0: name[marker + 2 .. ^1] else: name
+
+
+proc isMemberTypedef(typ: CXType): bool =
+  let decl = clang_getTypeDeclaration(typ)
+  if clang_getCursorKind(decl) notin {CXCursor_TypedefDecl, CXCursor_TypeAliasDecl}:
+    return false
+  result = clang_getCursorKind(clang_getCursorSemanticParent(decl)) in clang_RecordKinds
+
 
 const clang_Primitives = {
   CXType_Bool, CXType_Void,
@@ -31,7 +49,8 @@ proc splitTemplateArgs(argsStr: string): seq[string] =
   if current.strip.len > 0:
     result.add current.strip
 
-proc add_primitive*(conv: var Converter, name: string): astTF.Id =
+proc add_primitive*(conv: var Converter, rawName: string): astTF.Id =
+  let name = stripNamespace(rawName)
   let angleBracket = name.find('<')
   if angleBracket < 0:
     return conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(name))))
@@ -44,7 +63,7 @@ proc add_primitive*(conv: var Converter, name: string): astTF.Id =
   var firstExpr = none(astTF.Id)
   var prevExpr = none(astTF.Id)
   for arg in args:
-    let nimArg = arg.replace("<", "[").replace(">", "]")
+    let nimArg = stripNamespace(arg).replace("<", "[").replace(">", "]")
     let exprId = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(
       name: conv.addName(nimArg))))
     if prevExpr.isSome:
@@ -142,7 +161,7 @@ proc toObject*(conv: var Converter, typ: CXType): astTF.Id =
   elif '<' in named:
     let numArgs = clang_Type_getNumTemplateArguments(typ)
     if numArgs > 0:
-      let baseName = named[0 ..< named.find('<')]
+      let baseName = stripNamespace(named[0 ..< named.find('<')])
       var firstExpr = none(astTF.Id)
       var prevExpr = none(astTF.Id)
       for argIdx in 0 ..< numArgs:
@@ -211,6 +230,74 @@ proc toArray*(conv: var Converter, typ: CXType): astTF.Id =
   result = conv.ast.add_type(Type(kind: astTF.tArray, array: TypeArray(element: elemId, length: some(countExpr))))
 
 
+proc typeContainsVector*(typ: CXType, depth: int = 0): bool
+
+
+type VectorScanCtx = object
+  found: bool
+  depth: int
+
+
+proc recordContainsVector(record: CXType, depth: int): bool =
+  let decl = clang_getTypeDeclaration(record)
+  var ctx = VectorScanCtx(depth: depth)
+  discard clang_visitChildren(decl, proc(child: CXCursor; parent: CXCursor; data: pointer): cint {.cdecl.} =
+    let ctx = cast[ptr VectorScanCtx](data)
+    if clang_getCursorKind(child) == CXCursor_FieldDecl and typeContainsVector(clang_getCursorType(child), ctx.depth + 1):
+      ctx.found = true
+    return CXChildVisit_Continue.cint
+  , addr ctx)
+  result = ctx.found
+
+
+proc typeContainsVector*(typ: CXType, depth: int = 0): bool =
+  if depth > 8: return false
+  let canonical = clang_getCanonicalType(typ)
+  result = case canonical.kind
+    of CXType_Vector                                                  : true
+    of CXType_ConstantArray, CXType_IncompleteArray                   : typeContainsVector(clang_getArrayElementType(canonical), depth + 1)
+    of CXType_Pointer, CXType_LValueReference, CXType_RValueReference : typeContainsVector(clang_getPointeeType(canonical), depth + 1)
+    of CXType_Record                                                  : recordContainsVector(canonical, depth)
+    else                                                              : false
+
+
+proc registerDecl(typ: CXType): CXCursor =
+  var canonical = clang_getCanonicalType(typ)
+  var guard = 0
+  while guard < 8:
+    inc guard
+    case canonical.kind
+    of CXType_LValueReference, CXType_RValueReference, CXType_Pointer:
+      canonical = clang_getCanonicalType(clang_getPointeeType(canonical))
+    of CXType_ConstantArray, CXType_IncompleteArray:
+      canonical = clang_getCanonicalType(clang_getArrayElementType(canonical))
+    else:
+      break
+  result = clang_getTypeDeclaration(canonical)
+
+
+proc declaredExternally(conv: Converter, typ: CXType): bool =
+  let decl = registerDecl(typ)
+  if clang_Location_isInSystemHeader(clang_getCursorLocation(decl)) != 0:
+    return true
+  if conv.rootDir.len == 0: return false
+  let file = decl.cursorFileName
+  if file.len == 0: return false
+  result = not file.isRelativeTo(conv.rootDir)
+
+
+proc usesSimdRegister*(conv: Converter, typ: CXType): bool =
+  var value = typ
+  if value.kind in {CXType_LValueReference, CXType_RValueReference}:
+    value = clang_getPointeeType(value)
+  if clang_getCanonicalType(value).kind == CXType_Vector:
+    return true
+  if not typeContainsVector(value):
+    return false
+
+  result = conv.declaredExternally(value)
+
+
 proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
   let pointee = clang_getPointeeType(typ)
   let isConst = pointee.typeSpelling.startsWith("const ")
@@ -231,6 +318,9 @@ proc toReference*(conv: var Converter, typ: CXType): astTF.Id =
 
 
 proc convert_type*(conv: var Converter, typ: CXType): astTF.Id =
+  if isMemberTypedef(typ):
+    return conv.convert_type(clang_getCanonicalType(typ))
+
   result = case typ.kind
     of clang_Primitives       : conv.toPrimitive(typ)
     of CXType_Typedef         : conv.toPrimitive2(typ)

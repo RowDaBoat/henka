@@ -1,15 +1,37 @@
 # @deps std
-from std/strutils import startsWith
+from std/strutils import startsWith, contains, strip, IdentChars
 # @deps nonim
 import nonim/ast as astTF
 # @deps henka
 import ./[clang, common, comments, pragmas, types, statements, enums]
 
 
+const AllocationOperators = ["operator new", "operator new[]", "operator delete", "operator delete[]"]
+
+
 proc toMethod     *(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint
 proc toDestructor *(conv :var Converter; cursor :CXCursor; name :string) :cint
 
+
+proc signatureUsesSimdRegister(conv :Converter; cursor :CXCursor) :bool=
+  let funcType = clang_getCursorType(cursor)
+  if conv.usesSimdRegister(clang_getResultType(funcType)): return true
+  let argc = clang_Cursor_getNumArguments(cursor)
+  for idx in 0..<argc:
+    let arg = clang_Cursor_getArgument(cursor, idx.cuint)
+    if conv.usesSimdRegister(clang_getCursorType(arg)): return true
+  result = false
+
+
+proc emitSkipNote(conv :var Converter; text :string)=
+  let commentId = conv.add_comment(text, isDoc = false)
+  conv.add_statement_chained(Statement(kind: astTF.sComment, comment: StatementComment(id: commentId)))
+
+
+proc skipSimdRegister(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  conv.emitSkipNote("Skipped " & name & " (SIMD register type)  (" & cursor.sourceLocation & ")")
+  result = CXChildVisit_Continue.cint
 
 
 proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.string, system.string)=
@@ -29,6 +51,10 @@ proc operatorInfo*(name :system.string; argc :cint; cursor :CXCursor) :(system.s
     if entry[0] == name:
       result = (entry[1], entry[2])
       return
+  let target = stripNamespace(name["operator".len .. ^1].strip)
+  if target.len > 0 and target[0] in {'A'..'Z', 'a'..'z', '_'} and
+     '*' notin target and '&' notin target and ' ' notin target:
+    return ("to" & target, "#." & name & "(@)")
   result = (name, "#." & name & "(@)")
 
 
@@ -123,19 +149,25 @@ proc toClass*(conv :var Converter; cursor :CXCursor; name :string; defaultPublic
     let conv = cast[ptr Converter](data)
     let childKind = clang_getCursorKind(child)
     case childKind
-    of CXCursor_Constructor : discard conv[].toConstructor(child, child.spelling)
-    of CXCursor_Destructor  : discard conv[].toDestructor(child, child.spelling)
-    of CXCursor_CXXMethod   : discard conv[].toMethod(child, child.spelling)
-    of CXCursor_StructDecl  : discard conv[].toClass(child, child.spelling, defaultPublic = true)
-    of CXCursor_ClassDecl   : discard conv[].toClass(child, child.spelling)
-    of CXCursor_EnumDecl    : discard conv[].toEnum(child, child.spelling)
-    else                    : discard
+    of CXCursor_Constructor        : discard conv[].toConstructor(child, child.spelling)
+    of CXCursor_Destructor         : discard conv[].toDestructor(child, child.spelling)
+    of CXCursor_CXXMethod          : discard conv[].toMethod(child, child.spelling)
+    of CXCursor_ConversionFunction : discard conv[].toMethod(child, child.spelling)
+    of CXCursor_StructDecl         : discard conv[].toClass(child, child.spelling, defaultPublic = true)
+    of CXCursor_ClassDecl          : discard conv[].toClass(child, child.spelling)
+    of CXCursor_EnumDecl           : discard conv[].toEnum(child, child.spelling)
+    else                           : discard
     return CXChildVisit_Continue.cint
   , addr conv)
   return CXChildVisit_Continue.cint
 
 
 proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  if name in AllocationOperators:
+    conv.emitSkipNote("Skipped " & name & "  (" & cursor.sourceLocation & ")")
+    return CXChildVisit_Continue.cint
+  if conv.signatureUsesSimdRegister(cursor):
+    return conv.skipSimdRegister(cursor, name)
   let isStatic   = clang_CXXMethod_isStatic(cursor) != 0
   let isOperator = name.startsWith("operator")
   let funcType   = clang_getCursorType(cursor)
@@ -151,6 +183,13 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
     let parentTypeExpr = conv.ast.add_expression_type(parentTypeId)
     let thisBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("this")), dataType: some(parentTypeExpr), private: some(true)))
     argIds.add thisBinding
+  else:
+    let parentCursor = clang_getCursorSemanticParent(cursor)
+    let parentExpr   = conv.ast.add_expression(Expression(kind: astTF.eIdentifier, identifier: ExpressionIdentifier(name: conv.addName(parentCursor.spelling))))
+    let typedescId   = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName("typedesc"), instantiation: some(parentExpr))))
+    let typedescExpr = conv.ast.add_expression_type(typedescId)
+    let selfBinding  = conv.ast.add_binding(Binding(name: some(conv.addName("_")), dataType: some(typedescExpr), private: some(true)))
+    argIds.add selfBinding
   for idx in 0..<argc:
     let arg       = clang_Cursor_getArgument(cursor, idx.cuint)
     let argName   = if arg.spelling.len > 0: arg.spelling else: "a" & $idx
@@ -193,6 +232,8 @@ proc toMethod*(conv :var Converter; cursor :CXCursor; name :string) :cint=
 
 
 proc toConstructor*(conv :var Converter; cursor :CXCursor; name :string) :cint=
+  if conv.signatureUsesSimdRegister(cursor):
+    return conv.skipSimdRegister(cursor, name)
   let parentCursor = clang_getCursorSemanticParent(cursor)
   let parentName   = parentCursor.spelling
   let retTypeId    = conv.ast.add_type(Type(kind: astTF.tPrimitive, primitive: TypePrimitive(name: conv.addName(parentName))))
@@ -313,48 +354,82 @@ proc toClassTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint
   return CXChildVisit_Continue.cint
 
 
+proc identifierTokens(text :string) :seq[string]=
+  var token = ""
+  for character in text:
+    if character in IdentChars:
+      token.add character
+    elif token.len > 0:
+      result.add token
+      token = ""
+  if token.len > 0:
+    result.add token
+
+
+proc collectChildren(cursor :CXCursor) :seq[CXCursor]=
+  var children :seq[CXCursor]= @[]
+  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
+    cast[ptr seq[CXCursor]](data)[].add child
+    return CXChildVisit_Continue.cint
+  , addr children)
+  result = children
+
+
+proc packTypeNames(children :seq[CXCursor]) :seq[string]=
+  # A parameter pack (`Values... values`) shows up as a ParmDecl whose type spelling
+  # ends in `...`. Collect the type identifiers it mentions so the matching template
+  # type parameter can be dropped from the generics.
+  for child in children:
+    if clang_getCursorKind(child) == CXCursor_ParmDecl and "..." in clang_getCursorType(child).typeSpelling:
+      for token in identifierTokens(clang_getCursorType(child).typeSpelling):
+        if token notin result: result.add token
+
+
 proc toFunctionTemplate*(conv :var Converter; cursor :CXCursor; name :string) :cint=
-  let funcName = conv.addRenamed(Proc, name)
+  # C++ parameter packs have no Nim type equivalent, so we model them like C
+  # variadics: emit the fixed parameters, drop the pack parameter and its template
+  # type parameter, and append `{.varargs.}` so the call site forwards the rest for
+  # the C++ compiler to deduce.
+  let children  = collectChildren(cursor)
+  let packTypes = packTypeNames(children)
+  let hasPack   = packTypes.len > 0
+  let funcName  = conv.addRenamed(Proc, name)
   let qualified = cursor.qualifiedName
-  let funcType = clang_getCursorType(cursor)
-  let retType  = clang_getResultType(funcType)
-  let retOpt   = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
-  # Collect template type parameters
-  var genericCtx = ChildCtx(conv: addr conv)
-  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-    if clang_getCursorKind(child) == CXCursor_TemplateTypeParameter:
-      let ctx       = cast[ptr ChildCtx](data)
-      let paramName = ctx.conv[].addName(child.spelling)
-      let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(paramName), private: some(true)))
-      ctx.ids.add bindingId
-    return CXChildVisit_Continue.cint
-  , addr genericCtx)
+  let funcType  = clang_getCursorType(cursor)
+  let retType   = clang_getResultType(funcType)
+  let retOpt    = if retType.kind == CXType_Void: none(astTF.Id) else: some(conv.ast.add_expression_type(conv.convertType(retType)))
+  # Collect template type parameters, skipping the pack's own type parameter.
+  var genericIds :seq[astTF.Id]= @[]
+  for child in children:
+    if clang_getCursorKind(child) == CXCursor_TemplateTypeParameter and child.spelling notin packTypes:
+      let paramName = conv.addName(child.spelling)
+      genericIds.add conv.ast.add_binding(Binding(name: some(paramName), private: some(true)))
   var firstGeneric :Option[astTF.Id]= none(astTF.Id)
-  if genericCtx.ids.len > 0:
-    for idx in 0..<genericCtx.ids.len - 1:
-      conv.ast.data.bindings.get[genericCtx.ids[idx]].next = some(genericCtx.ids[idx + 1])
-    firstGeneric = some(genericCtx.ids[0])
-  # Collect arguments via children (clang_Cursor_getNumArguments returns -1 for templates)
-  var argCtx = ChildCtx(conv: addr conv)
-  discard clang_visitChildren(cursor, proc(child :CXCursor; parent :CXCursor; data :pointer) :cint {.cdecl.}=
-    if clang_getCursorKind(child) == CXCursor_ParmDecl:
-      let ctx       = cast[ptr ChildCtx](data)
-      let argName   = if child.spelling.len > 0: child.spelling else: "a" & $ctx.ids.len
-      let argIdent  = ctx.conv[].addRenamed(Parameter, argName)
-      let argTypeId = ctx.conv[].convertType(clang_getCursorType(child))
-      let argTypeExpr = ctx.conv[].ast.add_expression_type(argTypeId)
-      let bindingId = ctx.conv[].ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: some(true)))
-      ctx.ids.add bindingId
-    return CXChildVisit_Continue.cint
-  , addr argCtx)
+  if genericIds.len > 0:
+    for idx in 0..<genericIds.len - 1:
+      conv.ast.data.bindings.get[genericIds[idx]].next = some(genericIds[idx + 1])
+    firstGeneric = some(genericIds[0])
+
+  var argIds :seq[astTF.Id]= @[]
+  for child in children:
+    if clang_getCursorKind(child) == CXCursor_ParmDecl and not clang_getCursorType(child).typeSpelling.contains("..."):
+      let argName   = if child.spelling.len > 0: child.spelling else: "a" & $argIds.len
+      let argIdent  = conv.addRenamed(Parameter, argName)
+      let argTypeId = conv.convertType(clang_getCursorType(child))
+      let argTypeExpr = conv.ast.add_expression_type(argTypeId)
+      argIds.add conv.ast.add_binding(Binding(name: some(argIdent), dataType: some(argTypeExpr), private: some(true)))
   var firstArg :Option[astTF.Id]= none(astTF.Id)
-  if argCtx.ids.len > 0:
-    for idx in 0..<argCtx.ids.len - 1:
-      conv.ast.data.bindings.get[argCtx.ids[idx]].next = some(argCtx.ids[idx + 1])
-    firstArg = some(argCtx.ids[0])
-  let pragmaId = conv.chainPragmas(@[
-    ("importcpp", qualified & "<'*0>(@)"),
-    conv.linkPragma])
+  if argIds.len > 0:
+    for idx in 0..<argIds.len - 1:
+      conv.ast.data.bindings.get[argIds[idx]].next = some(argIds[idx + 1])
+    firstArg = some(argIds[0])
+
+  let importExpr = if hasPack: qualified & "(@)" else: qualified & "<'*0>(@)"
+  var pragmaPairs :seq[(system.string, system.string)]= @[]
+  if hasPack: pragmaPairs.add ("varargs", "")
+  pragmaPairs.add ("importcpp", importExpr)
+  pragmaPairs.add conv.linkPragma
+  let pragmaId = conv.chainPragmas(pragmaPairs)
   let procId = conv.ast.add_procedure(Procedure(
     name       : some(funcName),
     generics   : firstGeneric,

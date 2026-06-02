@@ -37,6 +37,7 @@ const baseDir = currentSourcePath().parentDir()
 const check = "check"
 const run = "r"
 const compileCpp = "cpp"
+const runCpp = "cpp -r"
 
 
 type Feature = object
@@ -140,6 +141,11 @@ const cppFeatures = [
   (run,        "enums_unscoped"),
   (compileCpp, "function_pointer_const"),
   (check,      "typedef_struct_pointer"),
+  (check,      "operators"),
+  (check,      "nested_qualified_types"),
+  (check,      "static_methods"),
+  (check,      "simd_vectors"),
+  (runCpp,     "parameter_packs"),
 ]
 
 

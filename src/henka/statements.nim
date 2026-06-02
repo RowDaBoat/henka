@@ -270,7 +270,14 @@ proc toObject*(conv: var Converter, cursor: CXCursor, name: string, isUnion: boo
 
 
 proc toProcedure*(conv: var Converter, cursor: CXCursor, name: string): cint =
-  let nimName  = if name.startsWith("operator"): operatorName(name) else: name
+  var nimName = name
+
+  if conv.isCpp:
+    nimName =
+      if name.startsWith("operator\"\""): userDefinedLiteralName(name)
+      elif name.startsWith("operator"):   operatorName(name)
+      else:                               name
+
   let funcName = conv.addRenamed(Proc, nimName)
   let funcType = clang_getCursorType(cursor)
   let retType  = clang_getResultType(funcType)

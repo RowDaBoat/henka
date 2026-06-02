@@ -9,7 +9,7 @@ proc printf(format :cstring) {.importc, varargs, header: "<cstdio>".}
 proc main =
   let a = Vec3_create(1.0, 2.0, 3.0)
   let b = Vec3_create(4.0, 5.0, 6.0)
-  let z = zero()
+  let z = Vec3.zero()
 
   printf("a = (%g, %g, %g)\n", a.x, a.y, a.z)
   printf("b = (%g, %g, %g)\n", b.x, b.y, b.z)
