@@ -38,28 +38,9 @@
 ## Other v2 tasks
 - [x] Per-module statement chain tracking — chain pointers reset and stitched per module in generator loop
 - [x] `size_t` resolves to `cint` — was missing `#include <stddef.h>` in test header. clang needs the typedef visible to report `size_t` correctly.
-- [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
 - [x] Nim case-insensitive name collisions — caller handles via `renamer`/`symbolFilter`. `symbolFilter` now supports `EnumValue` kind for filtering individual enum members.
 - [x] C operators in macro values — `|`→`or`, `&`→`and`, `~`→`not`, `<<`→`shl`, `>>`→`shr` now in `defaultValueMapper`
 - [x] Move multi-module rendering logic into nonim — `nonim.codegen.nim(ast)` renders all modules, returns Output
-- [x] Proper generic type references in AST
-  - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
-  - [x] `add_primitive` now parses `<>` and creates expression chain for type arguments
-  - [x] Simple and multi-arg templates work: `Ref[int]`, `Map[int, float]`
-  - [x] Nested templates: `Vector<Ref<int>>` → `Vector[Ref[int]]` — expression name uses `<>`→`[]` string replacement, not recursive `instantiation` chains
-  - [x] Template typedef alias ordering — fixed by putting all `sType` statements in one chain (types → aliases → others). All type statements stay in one `type` block so Nim forward references work.
-  - [x] Template instantiation arg types not resolved through type system — fixed by using `clang_Type_getNumTemplateArguments` / `clang_Type_getTemplateArgumentAsType` in `toObject` to get actual `CXType` values and run them through `convertType`. `int`→`cint`, `float`→`cfloat` etc.
-  - [x] `toAlias` space-in-angle-brackets — `typedef Map<int, Ref<float>>` was falling through to `incompleteStruct` because `' ' in elabName` didn't skip spaces inside `<>`. Fixed with `'<' notin elabName` guard.
-- [x] C++ reference semantics in bindings
-  - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
-  - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
-  - [x] `const T&` → `T` (flattened, const stripped)
-  - [x] `const T&&` → `T` (flattened, const stripped)
-- [ ] C++ reference semantics in bindings
-  - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
-  - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
-  - [x] `const T&` → `T` (flattened, const stripped)
-  - [x] `const T&&` → `T` (flattened, const stripped)
 
 
 ## Enums
@@ -96,6 +77,28 @@ C enums are `cint` in C. The generated `cint` alias + `const` is correct for ABI
 
 ## Ergonomics (v2)
 - [x] Potentially unify renamer/symbolOverride/unnamedFieldNamer into a single callback or pipeline (different goals entirely)
+
+
+## C++ support
+- [x] C++ struct methods — C++ `StructDecl` now routes through `toClass` with `defaultPublic=true`. Forward declaration replacement in `toClass`. Nested C++ structs/classes/enums hoisted via recursive visitor.
+- [x] Proper generic type references in AST
+  - [x] `TypePrimitive.instantiation` field added to astTF spec (v0.9.7)
+  - [x] `add_primitive` now parses `<>` and creates expression chain for type arguments
+  - [x] Simple and multi-arg templates work: `Ref[int]`, `Map[int, float]`
+  - [x] Nested templates: `Vector<Ref<int>>` → `Vector[Ref[int]]` — expression name uses `<>`→`[]` string replacement, not recursive `instantiation` chains
+  - [x] Template typedef alias ordering — fixed by putting all `sType` statements in one chain (types → aliases → others). All type statements stay in one `type` block so Nim forward references work.
+  - [x] Template instantiation arg types not resolved through type system — fixed by using `clang_Type_getNumTemplateArguments` / `clang_Type_getTemplateArgumentAsType` in `toObject` to get actual `CXType` values and run them through `convertType`. `int`→`cint`, `float`→`cfloat` etc.
+  - [x] `toAlias` space-in-angle-brackets — `typedef Map<int, Ref<float>>` was falling through to `incompleteStruct` because `' ' in elabName` didn't skip spaces inside `<>`. Fixed with `'<' notin elabName` guard.
+- [x] C++ reference semantics in bindings
+  - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
+  - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
+  - [x] `const T&` → `T` (flattened, const stripped)
+  - [x] `const T&&` → `T` (flattened, const stripped)
+- [ ] C++ reference semantics in bindings
+  - [x] `T&` (mutable lvalue ref) → `var T` via `mutable: true` on type
+  - [x] `T&&` (rvalue ref) → `sink T` via `keyword: "sink"` on primitive type
+  - [x] `const T&` → `T` (flattened, const stripped)
+  - [x] `const T&&` → `T` (flattened, const stripped)
 
 
 ## Testing
