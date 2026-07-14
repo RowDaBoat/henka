@@ -61,7 +61,7 @@ proc addPragma*(conv: var Converter; name: string; value: string = ""; quoted: b
 
 proc headerPragma*(conv: Converter): (system.string, system.string) =
   let path = case conv.rootDir.len > 0
-    of true:  conv.headerFile.relativePath(conv.rootDir)
+    of true:  conv.headerFile.relativePath(conv.rootDir).replace('\\', '/')
     of false: conv.headerFile.lastPathPart
   result = ("header", path)
 
